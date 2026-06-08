@@ -1,0 +1,82 @@
+# Signing and versioning
+
+Agile Prices uses a conditional release signing setup so normal debug and
+unsigned local builds continue to work without a keystore. A release build is
+signed only when all release signing values are present.
+
+## Signing inputs
+
+Create an upload keystore for Play App Signing and keep it outside version
+control. Android's app signing guidance recommends an upload key for Android
+App Bundles, with Google Play using Play App Signing for the final distributed
+APKs.
+
+Copy `keystore.properties.example` to `keystore.properties`, then fill in:
+
+```properties
+storeFile=/absolute/path/to/agile-prices-upload.jks
+storePassword=...
+keyAlias=upload
+keyPassword=...
+```
+
+`keystore.properties`, `*.jks` and `*.keystore` are ignored by Git.
+
+The same values can also be provided without a properties file:
+
+```sh
+AGILE_PRICES_KEYSTORE_FILE=/absolute/path/to/agile-prices-upload.jks \
+AGILE_PRICES_KEYSTORE_PASSWORD=... \
+AGILE_PRICES_KEY_ALIAS=upload \
+AGILE_PRICES_KEY_PASSWORD=... \
+./gradlew bundleRelease
+```
+
+Gradle project properties are supported too:
+
+```sh
+./gradlew bundleRelease \
+  -PagilePrices.storeFile=/absolute/path/to/agile-prices-upload.jks \
+  -PagilePrices.storePassword=... \
+  -PagilePrices.keyAlias=upload \
+  -PagilePrices.keyPassword=...
+```
+
+## Build commands
+
+Unsigned development build:
+
+```sh
+./gradlew assembleDebug
+```
+
+Signed Android App Bundle:
+
+```sh
+./gradlew bundleRelease
+```
+
+The signed AAB is written to:
+
+```text
+app/build/outputs/bundle/release/app-release.aab
+```
+
+## Versioning
+
+The default version is currently:
+
+```text
+versionCode=1
+versionName=0.1.0
+```
+
+Override it for a release with Gradle properties or ignored local properties:
+
+```sh
+./gradlew bundleRelease \
+  -PagilePrices.versionCode=2 \
+  -PagilePrices.versionName=0.1.1
+```
+
+Each Play upload must increase `versionCode`.
