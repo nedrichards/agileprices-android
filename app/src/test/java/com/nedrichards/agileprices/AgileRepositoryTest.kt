@@ -184,6 +184,43 @@ class AgileRepositoryTest {
     }
 
     @Test
+    fun snapshotKeepsShortRowsButGraphsTwentyFourHoursIncludingCurrentSlot() = runTest {
+        val now = fixedNow.plusSeconds(15 * 60)
+        val prices = List(60) { index ->
+            val validFrom = fixedNow.minusSeconds(30 * 60).plusSeconds(index * 30L * 60L)
+            PriceWindow(
+                validFrom = validFrom,
+                validTo = validFrom.plusSeconds(30 * 60),
+                pricePencePerKwh = index.toDouble(),
+            )
+        }
+        val settings = FakeSettingsDataSource(
+            initial = AgileSettings(
+                selectedRegionCode = "_C",
+                selectedTariffCode = "E-1R-AGILE-24-10-01-C",
+                loadDurationMinutes = 60,
+                searchHorizonMinutes = 480,
+                cachedPrices = prices,
+                fetchedAt = fixedNow,
+                lastRefreshMessage = null,
+            ),
+        )
+        val repository = AgileRepository(
+            settingsStore = settings,
+            octopusApi = FakeOctopusClient(),
+            clock = { now },
+        )
+
+        val snapshot = repository.snapshots.first()
+
+        assertEquals(8, snapshot.upcoming.size)
+        assertEquals(fixedNow.plusSeconds(30 * 60), snapshot.upcoming.first().validFrom)
+        assertEquals(49, snapshot.sparklinePrices.size)
+        assertEquals(fixedNow, snapshot.sparklinePrices.first().validFrom)
+        assertEquals(fixedNow.plusSeconds(24 * 60 * 60), snapshot.sparklinePrices.last().validFrom)
+    }
+
+    @Test
     fun refreshWithCachedPricesShowsClockHintWhenSecureConnectionFails() = runTest {
         val cachedPrice = PriceWindow(
             validFrom = fixedNow.minusSeconds(30 * 60),

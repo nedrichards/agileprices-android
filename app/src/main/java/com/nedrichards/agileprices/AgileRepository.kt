@@ -159,6 +159,7 @@ class AgileRepository(
             else -> SnapshotStatus.Loaded
         }
 
+        val graphHorizon = now.plus(Duration.ofHours(24))
         return PriceSnapshot(
             currentPrice = current,
             bestWindow = best,
@@ -169,6 +170,8 @@ class AgileRepository(
             upcoming = validPrices
                 .filter { it.validFrom >= now }
                 .take(8),
+            sparklinePrices = validPrices
+                .filter { it.validTo > now && it.validFrom < graphHorizon }
         )
     }
 

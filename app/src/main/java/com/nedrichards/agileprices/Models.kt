@@ -30,6 +30,7 @@ data class PriceSnapshot(
     val status: SnapshotStatus,
     val message: String? = null,
     val upcoming: List<PriceWindow> = emptyList(),
+    val sparklinePrices: List<PriceWindow> = emptyList(),
 )
 
 data class AgileAppState(

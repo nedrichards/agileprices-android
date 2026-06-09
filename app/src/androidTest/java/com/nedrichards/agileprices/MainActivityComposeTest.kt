@@ -67,6 +67,7 @@ class MainActivityComposeTest {
                 lastRefreshMessage = null,
             ),
         )
+        var refreshed = false
 
         compose.setContent {
             MaterialTheme {
@@ -82,12 +83,13 @@ class MainActivityComposeTest {
                         validUntil = Instant.parse("2026-01-06T00:00:00Z"),
                         status = SnapshotStatus.Loaded,
                         upcoming = sampleUpcomingPrices(now),
+                        sparklinePrices = sampleUpcomingPrices(now),
                     ),
                     settings = settings,
                     now = now,
                     busy = false,
                     message = null,
-                    onRefresh = {},
+                    onRefresh = { refreshed = true },
                     onLoadDurationChanged = { settings = settings.copy(loadDurationMinutes = it) },
                     onSearchHorizonChanged = { settings = settings.copy(searchHorizonMinutes = it) },
                     onChangeRegion = {},
@@ -115,6 +117,12 @@ class MainActivityComposeTest {
         compose.onNodeWithTag("price_list").performScrollToNode(hasText("Search"))
         compose.onNodeWithContentDescription("Increase Search").performClick()
         compose.onNodeWithText("9h").assertIsDisplayed()
+
+        compose.onNodeWithTag("price_list").performScrollToNode(hasTestTag("refresh_action"))
+        compose.onNodeWithTag("refresh_action").assertIsDisplayed().performClick()
+        compose.runOnIdle {
+            assertTrue(refreshed)
+        }
     }
 
     @Test

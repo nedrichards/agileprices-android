@@ -335,14 +335,6 @@ internal fun PriceScreen(
                 )
             }
             item {
-                PillAction(
-                    text = if (busy) "Refreshing" else "Refresh",
-                    enabled = !busy,
-                    onClick = onRefresh,
-                    filled = false,
-                )
-            }
-            item {
                 Text(
                     text = message ?: snapshot.message ?: snapshot.secondaryStatusText(),
                     fontSize = 11.sp,
@@ -350,14 +342,16 @@ internal fun PriceScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            if (snapshot.upcoming.isNotEmpty()) {
+            if (snapshot.sparklinePrices.isNotEmpty()) {
                 item {
                     PriceSparkline(
-                        prices = snapshot.upcoming,
+                        prices = snapshot.sparklinePrices,
                         bestWindow = snapshot.bestWindow,
                         now = now,
                     )
                 }
+            }
+            if (snapshot.upcoming.isNotEmpty()) {
                 item {
                     Spacer(Modifier.height(4.dp))
                     Text("Next slots", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
@@ -365,6 +359,15 @@ internal fun PriceScreen(
                 items(snapshot.upcoming) { price ->
                     PriceRow(price)
                 }
+            }
+            item {
+                PillAction(
+                    text = if (busy) "Refreshing" else "Refresh",
+                    enabled = !busy,
+                    onClick = onRefresh,
+                    modifier = Modifier.testTag("refresh_action"),
+                    filled = false,
+                )
             }
             item {
                 SetupSummary(
@@ -435,8 +438,8 @@ private fun PriceSparkline(
 ) {
     val visiblePrices = prices
         .filter { it.validTo > now && it.validFrom < now.plus(Duration.ofHours(24)) }
-        .take(48)
     if (visiblePrices.size < 2) return
+    val label = sparklineLabel(visiblePrices, now)
 
     val minPrice = visiblePrices.minOf { it.pricePencePerKwh }
     val maxPrice = visiblePrices.maxOf { it.pricePencePerKwh }
@@ -456,7 +459,7 @@ private fun PriceSparkline(
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         Text(
-            text = "Next 24h",
+            text = label,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
@@ -468,7 +471,7 @@ private fun PriceSparkline(
                 .height(42.dp)
                 .testTag("price_sparkline")
                 .semantics {
-                    contentDescription = "Next 24 hour price graph"
+                    contentDescription = "$label price graph"
                 },
         ) {
             val top = 3f
@@ -532,6 +535,14 @@ private fun PriceSparkline(
             )
         }
     }
+}
+
+private fun sparklineLabel(prices: List<PriceWindow>, now: Instant): String {
+    val availableMinutes = Duration.between(now, prices.last().validTo)
+        .toMinutes()
+        .coerceAtLeast(30)
+    val availableHours = ((availableMinutes + 59) / 60).coerceAtMost(24)
+    return if (availableHours >= 24) "Next 24h" else "Next ${availableHours}h"
 }
 
 @Composable

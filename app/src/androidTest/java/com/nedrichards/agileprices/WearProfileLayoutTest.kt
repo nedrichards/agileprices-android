@@ -140,6 +140,7 @@ class WearProfileLayoutTest {
             validUntil = Instant.parse("2026-01-06T00:00:00Z"),
             status = SnapshotStatus.Loaded,
             upcoming = sampleUpcomingPrices(),
+            sparklinePrices = sampleUpcomingPrices(),
         )
 
     private fun settings(): AgileSettings =
