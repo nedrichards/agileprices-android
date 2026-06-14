@@ -69,6 +69,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.delay
@@ -892,17 +893,35 @@ fun formatWindowRange(
     reference: Instant = Instant.now(),
 ): String {
     val zone = ZoneId.systemDefault()
-    val startDate = start.atZone(zone).toLocalDate()
+    val startDateTime = start.atZone(zone)
+    val endDateTime = end.atZone(zone)
+    val startDate = startDateTime.toLocalDate()
     val referenceDate = reference.atZone(zone).toLocalDate()
+    val formatter = if (startDateTime.needsZoneDisambiguation(zone, endDateTime)) {
+        ambiguousTimeFormatter
+    } else {
+        timeFormatter
+    }
     val prefix = when (startDate) {
         referenceDate -> ""
         referenceDate.plusDays(1) -> "Tomorrow "
-        else -> "${dateFormatter.format(start.atZone(zone))} "
+        else -> "${dateFormatter.format(startDateTime)} "
     }
-    return "$prefix${formatTime(start)}-${formatTime(end)}"
+    return "$prefix${formatter.format(startDateTime)}-${formatter.format(endDateTime)}"
+}
+
+private fun ZonedDateTime.needsZoneDisambiguation(
+    zone: ZoneId,
+    end: ZonedDateTime,
+): Boolean {
+    val rules = zone.rules
+    return rules.getValidOffsets(toLocalDateTime()).size > 1 ||
+        rules.getValidOffsets(end.toLocalDateTime()).size > 1 ||
+        !end.toLocalDateTime().isAfter(toLocalDateTime())
 }
 
 private val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.UK)
+private val ambiguousTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm z", Locale.UK)
 private val dateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM HH:mm", Locale.UK)
 private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.UK)
 

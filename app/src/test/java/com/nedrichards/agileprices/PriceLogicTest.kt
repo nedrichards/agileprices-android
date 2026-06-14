@@ -4,6 +4,7 @@ import java.time.Instant
 import java.util.TimeZone
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -176,6 +177,55 @@ class PriceLogicTest {
         } finally {
             TimeZone.setDefault(originalTimeZone)
         }
+    }
+
+    @Test
+    fun windowRangeDisambiguatesRepeatedUkAutumnDstHour() {
+        val originalTimeZone = TimeZone.getDefault()
+        TimeZone.setDefault(TimeZone.getTimeZone("Europe/London"))
+        try {
+            val firstRepeatedHour = formatWindowRange(
+                start = Instant.parse("2026-10-25T00:00:00Z"),
+                end = Instant.parse("2026-10-25T00:30:00Z"),
+                reference = Instant.parse("2026-10-25T00:00:00Z"),
+            )
+            val secondRepeatedHour = formatWindowRange(
+                start = Instant.parse("2026-10-25T01:00:00Z"),
+                end = Instant.parse("2026-10-25T01:30:00Z"),
+                reference = Instant.parse("2026-10-25T00:00:00Z"),
+            )
+
+            assertEquals("01:00 BST-01:30 BST", firstRepeatedHour)
+            assertEquals("01:00 GMT-01:30 GMT", secondRepeatedHour)
+            assertNotEquals(firstRepeatedHour, secondRepeatedHour)
+        } finally {
+            TimeZone.setDefault(originalTimeZone)
+        }
+    }
+
+    @Test
+    fun maxDurationCanBeFoundNearEndOfSearchHorizon() {
+        val now = Instant.parse("2026-03-21T12:00:00Z")
+        val prices = List(65) { index ->
+            val validFrom = now.plusSeconds(index * 30L * 60L)
+            PriceWindow(
+                validFrom = validFrom,
+                validTo = validFrom.plusSeconds(30 * 60),
+                pricePencePerKwh = if (index in 47..62) 1.0 else 40.0,
+            )
+        }
+
+        val slot = findBestLoadWindow(
+            prices = prices,
+            now = now,
+            durationMinutes = 480,
+            searchHorizonMinutes = 1440,
+        )
+
+        assertNotNull(slot)
+        assertEquals(now.plusSeconds(47 * 30L * 60L), slot!!.start)
+        assertEquals(now.plusSeconds(63 * 30L * 60L), slot.end)
+        assertEquals(1.0, slot.averagePricePencePerKwh, 0.0001)
     }
 
     @Test
