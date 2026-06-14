@@ -1,6 +1,6 @@
 # Agile Prices for Android and Wear OS
 
-Agile Prices is a standalone Android app for Octopus Agile electricity prices. It is built for quick glanceable decisions on a watch and a richer phone/adaptive view: what the price is now, when the cheapest upcoming load window starts, and what the next half-hour prices look like.
+Agile Prices is a standalone Android app for Octopus Agile electricity prices. It is built for quick glanceable decisions on a watch and a richer phone/adaptive view: what the price is now, when the cheapest upcoming window for your chosen run time starts, and what the next half-hour prices look like.
 
 The app is independent and is not affiliated with, endorsed by or sponsored by Octopus Energy.
 
@@ -12,12 +12,12 @@ The app is independent and is not affiliated with, endorsed by or sponsored by O
 - Region-based setup using the public Octopus products API.
 - Direct-debit Agile tariff selection where Octopus publishes multiple payment methods for a region.
 - Current p/kWh price from standard unit rates.
-- Cheapest future load window from cached half-hour rates.
-- Phone/adaptive Material 3 UI showing current price, best remembered-duration window, planning controls and an interactive 24-hour price graph.
+- Cheapest future window for the remembered run time from cached half-hour rates.
+- Phone/adaptive Material 3 UI showing current price, cheapest remembered-duration window, planning controls and an interactive 24-hour price graph.
 - Wear app UI tuned for round watch screens.
-- Wear Tile showing current price and best window.
+- Wear Tile showing current price and cheapest window.
 - Wear SHORT_TEXT complication showing current price.
-- Periodic background refresh with a network-connected WorkManager constraint.
+- Periodic background refresh with a network-connected WorkManager constraint and no retry wakeups between the normal 30-minute cadence.
 
 Out of scope for this version: account API keys, usage history, export tariffs, Go, Intelligent Go, spend analysis, notifications, home-screen widgets and watch/phone Data Layer sync.
 
@@ -41,14 +41,14 @@ The app stores its configuration and cached price windows in Preferences DataSto
 
 Prices are represented internally as pence per kWh. This keeps display and calculation units aligned with the Octopus standard unit-rate API and avoids unnecessary GBP conversion churn.
 
-The cheapest-window calculation tries continuous starts from the next half-hour boundary at 30-minute cadence, then falls back to practical half-hour and whole-hour starts if needed. That keeps the watch answer aligned with Agile half-hour price periods.
+The cheapest-window calculation tries continuous starts from the next half-hour boundary at 30-minute cadence, then falls back to practical half-hour and whole-hour starts if needed. That keeps the answer aligned with Agile half-hour price periods. Repeated local clock times around the UK autumn daylight-saving transition are disambiguated with `BST` or `GMT`.
 
 ## Build and test
 
 Use a project-local Gradle cache if the normal home cache is not writable:
 
 ```sh
-env GRADLE_USER_HOME="$PWD/.gradle-local" ./gradlew testDebugUnitTest assembleDebug
+env GRADLE_USER_HOME="$PWD/.gradle-local" ./gradlew testPhoneDebugUnitTest testWearDebugUnitTest assemblePhoneDebug assembleWearDebug
 ```
 
 Generate Android project metadata:
@@ -102,15 +102,16 @@ After installing on a phone or resizable Android/ChromeOS window:
 
 1. Launch Agile Prices.
 2. Choose a UK electricity region.
-3. Confirm the app loads a current price, current half-hour period and best load window.
-4. Change load duration and search horizon, then confirm the best window recomputes from cached rates.
-5. Confirm the interactive 24-hour graph, stale/error messaging and manual refresh remain usable at compact and wider window sizes.
+3. Confirm the app loads a current price, current half-hour period and cheapest window for the selected run time.
+4. Change run time and search horizon, then confirm the cheapest window recomputes from cached rates.
+5. Confirm the interactive 24-hour graph supports left/right selection while vertical swipes or up/down navigation scroll the page.
+6. Confirm stale/error messaging and manual refresh remain usable at compact and wider window sizes.
 
 After installing on a Wear OS emulator or device:
 
 1. Launch Agile Prices.
 2. Choose a UK electricity region.
-3. Confirm the app loads a current price and a best load window.
-4. Change load duration and search horizon, then confirm the best window recomputes from cached rates.
-5. Add the Tile and confirm it shows the current price plus best window.
+3. Confirm the app loads a current price and a cheapest window for the selected run time.
+4. Change run time and search horizon, then confirm the cheapest window recomputes from cached rates.
+5. Add the Tile and confirm it shows the current price plus cheapest window.
 6. Add the SHORT_TEXT complication and confirm it opens the app when tapped.
