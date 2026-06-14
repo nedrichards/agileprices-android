@@ -1,8 +1,14 @@
 package com.nedrichards.agileprices
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasTestTag
@@ -13,8 +19,14 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.unit.dp
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -95,7 +107,7 @@ class PhoneAdaptiveLayoutTest {
         compose.onNodeWithText("8.2p/kWh").assertIsDisplayed()
         compose.onAllNodesWithText("p/kWh now").assertCountEquals(0)
         compose.onAllNodesWithText("Current period 12:00-12:30").assertCountEquals(0)
-        compose.onAllNodesWithText("Best load window")[0].assertIsDisplayed()
+        compose.onAllNodesWithText("Cheapest 1h window")[0].assertIsDisplayed()
         compose.onNodeWithText("13:00-14:00").assertIsDisplayed()
         compose.onNodeWithText("Starts in 1h - Ends in 2h").assertIsDisplayed()
         compose.onAllNodesWithText("Duration 1h").assertCountEquals(0)
@@ -111,7 +123,8 @@ class PhoneAdaptiveLayoutTest {
 
         compose.onNodeWithTag("phone_compact_price_list").performScrollToNode(hasTestTag("phone_price_sparkline"))
         compose.onNodeWithText("Upcoming prices").assertIsDisplayed()
-        compose.onNodeWithText("12:00-12:30 · 8.2p/kWh").assertIsDisplayed()
+        compose.onNodeWithText("12:00-12:30").assertIsDisplayed()
+        compose.onNodeWithText("8.2p/kWh").assertIsDisplayed()
         compose.onNodeWithTag("phone_cheapest_price").assertIsDisplayed()
         compose.onNodeWithTag("phone_price_sparkline").assertIsDisplayed()
         compose.onAllNodesWithText("Next slots").assertCountEquals(0)
@@ -223,6 +236,156 @@ class PhoneAdaptiveLayoutTest {
         }
         compose.onNodeWithTag("phone_two_pane").assertIsDisplayed()
         compose.onNodeWithTag("phone_supporting_pane").assertIsDisplayed()
+    }
+
+    @Test
+    @OptIn(ExperimentalTestApi::class)
+    fun phoneGraphSupportsHorizontalKeySelection() {
+        compose.setContent {
+            AgilePricesContent(
+                surface = AgileSurface.Phone,
+                adaptiveWidthClass = AdaptiveWidthClass.Compact,
+                snapshot = loadedSnapshot(settings()),
+                settings = settings(),
+                now = now,
+                busy = false,
+                message = null,
+                choosingRegion = false,
+                onSelectRegion = {},
+                onRefresh = {},
+                onLoadDurationChanged = {},
+                onSearchHorizonChanged = {},
+                onChangeRegion = {},
+                onDismissRegionPicker = {},
+            )
+        }
+
+        compose.onNodeWithTag("phone_compact_price_list").performScrollToNode(hasTestTag("phone_price_sparkline"))
+        compose.onNodeWithText("12:00-12:30").assertIsDisplayed()
+        compose.onNodeWithText("8.2p/kWh").assertIsDisplayed()
+
+        compose.onNodeWithTag("phone_price_sparkline")
+            .performSemanticsAction(SemanticsActions.RequestFocus)
+        compose.onNodeWithTag("phone_price_sparkline")
+            .performKeyInput { pressKey(Key.DirectionRight) }
+        compose.onNodeWithText("12:30-13:00").assertIsDisplayed()
+        compose.onNodeWithText("11.0p/kWh").assertIsDisplayed()
+
+        compose.onNodeWithTag("phone_price_sparkline")
+            .performKeyInput { pressKey(Key.DirectionLeft) }
+        compose.onNodeWithText("12:00-12:30").assertIsDisplayed()
+        compose.onNodeWithText("8.2p/kWh").assertIsDisplayed()
+    }
+
+    @Test
+    @OptIn(ExperimentalTestApi::class)
+    fun phoneGraphSelectionSurvivesNowTick() {
+        var clockNow by mutableStateOf(now)
+
+        compose.setContent {
+            AgilePricesContent(
+                surface = AgileSurface.Phone,
+                adaptiveWidthClass = AdaptiveWidthClass.Compact,
+                snapshot = loadedSnapshot(settings()),
+                settings = settings(),
+                now = clockNow,
+                busy = false,
+                message = null,
+                choosingRegion = false,
+                onSelectRegion = {},
+                onRefresh = {},
+                onLoadDurationChanged = {},
+                onSearchHorizonChanged = {},
+                onChangeRegion = {},
+                onDismissRegionPicker = {},
+            )
+        }
+
+        compose.onNodeWithTag("phone_compact_price_list").performScrollToNode(hasTestTag("phone_price_sparkline"))
+        compose.onNodeWithTag("phone_price_sparkline")
+            .performSemanticsAction(SemanticsActions.RequestFocus)
+        compose.onNodeWithTag("phone_price_sparkline")
+            .performKeyInput { pressKey(Key.DirectionRight) }
+        compose.onNodeWithText("12:30-13:00").assertIsDisplayed()
+
+        compose.runOnIdle {
+            clockNow = now.plusSeconds(60)
+        }
+
+        compose.onNodeWithText("12:30-13:00").assertIsDisplayed()
+        compose.onAllNodesWithText("12:00-12:30").assertCountEquals(0)
+    }
+
+    @Test
+    @OptIn(ExperimentalTestApi::class)
+    fun phoneGraphSelectionTracksTimeWhenVisibleSlotsShift() {
+        var clockNow by mutableStateOf(now)
+
+        compose.setContent {
+            AgilePricesContent(
+                surface = AgileSurface.Phone,
+                adaptiveWidthClass = AdaptiveWidthClass.Compact,
+                snapshot = loadedSnapshot(settings()),
+                settings = settings(),
+                now = clockNow,
+                busy = false,
+                message = null,
+                choosingRegion = false,
+                onSelectRegion = {},
+                onRefresh = {},
+                onLoadDurationChanged = {},
+                onSearchHorizonChanged = {},
+                onChangeRegion = {},
+                onDismissRegionPicker = {},
+            )
+        }
+
+        compose.onNodeWithTag("phone_compact_price_list").performScrollToNode(hasTestTag("phone_price_sparkline"))
+        compose.onNodeWithTag("phone_price_sparkline")
+            .performSemanticsAction(SemanticsActions.RequestFocus)
+        compose.onNodeWithTag("phone_price_sparkline")
+            .performKeyInput {
+                pressKey(Key.DirectionRight)
+                pressKey(Key.DirectionRight)
+            }
+        compose.onNodeWithText("13:00-13:30").assertIsDisplayed()
+
+        compose.runOnIdle {
+            clockNow = now.plusSeconds(30 * 60)
+        }
+
+        compose.onNodeWithText("13:00-13:30").assertIsDisplayed()
+        compose.onAllNodesWithText("13:30-14:00").assertCountEquals(0)
+    }
+
+    @Test
+    fun verticalSwipeStartingOnPhoneGraphScrollsThePage() {
+        compose.setContent {
+            Box(modifier = Modifier.size(width = 360.dp, height = 420.dp)) {
+                AgilePricesContent(
+                    surface = AgileSurface.Phone,
+                    adaptiveWidthClass = AdaptiveWidthClass.Compact,
+                    snapshot = loadedSnapshot(settings()),
+                    settings = settings(),
+                    now = now,
+                    busy = false,
+                    message = null,
+                    choosingRegion = false,
+                    onSelectRegion = {},
+                    onRefresh = {},
+                    onLoadDurationChanged = {},
+                    onSearchHorizonChanged = {},
+                    onChangeRegion = {},
+                    onDismissRegionPicker = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag("phone_compact_price_list").performScrollToNode(hasTestTag("phone_price_sparkline"))
+        compose.onNodeWithTag("phone_price_sparkline").assertIsDisplayed()
+        compose.onNodeWithTag("phone_price_sparkline").performTouchInput { swipeUp() }
+
+        compose.onNodeWithTag("phone_refresh_action").assertIsDisplayed()
     }
 
     private fun loadedSnapshot(settings: AgileSettings): PriceSnapshot =

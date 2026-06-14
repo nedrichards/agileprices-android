@@ -2,8 +2,9 @@ package com.nedrichards.agileprices
 
 import android.os.Build
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -36,7 +37,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,6 +47,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -239,7 +245,11 @@ private fun CompactPhonePriceScreen(
             PhonePriceHero(snapshot = snapshot)
         }
         item {
-            PhoneBestWindowPanel(snapshot = snapshot, now = now)
+            PhoneBestWindowPanel(
+                snapshot = snapshot,
+                loadDurationMinutes = settings.loadDurationMinutes,
+                now = now,
+            )
         }
         item {
             PhoneControlsPanel(
@@ -300,7 +310,13 @@ private fun WidePhonePriceScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item { PhonePriceHero(snapshot = snapshot) }
-            item { PhoneBestWindowPanel(snapshot = snapshot, now = now) }
+            item {
+                PhoneBestWindowPanel(
+                    snapshot = snapshot,
+                    loadDurationMinutes = settings.loadDurationMinutes,
+                    now = now,
+                )
+            }
             item {
                 PhoneControlsPanel(
                     settings = settings,
@@ -372,6 +388,7 @@ private fun PhonePriceHero(
 @Composable
 private fun PhoneBestWindowPanel(
     snapshot: PriceSnapshot,
+    loadDurationMinutes: Int,
     now: Instant,
 ) {
     Surface(
@@ -384,7 +401,7 @@ private fun PhoneBestWindowPanel(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = "Best load window",
+                text = cheapestWindowLabel(loadDurationMinutes),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -433,7 +450,11 @@ private fun PhoneInteractivePriceGraph(
     val defaultIndex = visiblePrices.indexOfFirst { it.validFrom <= now && it.validTo > now }
         .takeIf { it >= 0 }
         ?: 0
-    var selectedIndex by remember(visiblePrices, now) { mutableIntStateOf(defaultIndex) }
+    var selectedStart by remember(prices) { mutableStateOf<Instant?>(null) }
+    val selectedIndex = selectedStart
+        ?.let { start -> visiblePrices.indexOfFirst { it.validFrom == start } }
+        ?.takeIf { it >= 0 }
+        ?: defaultIndex
     val coercedSelectedIndex = selectedIndex.coerceIn(visiblePrices.indices)
     val selectedPrice = visiblePrices[coercedSelectedIndex]
     val cheapestIndex = visiblePrices.indices.minBy { visiblePrices[it].pricePencePerKwh }
@@ -448,6 +469,14 @@ private fun PhoneInteractivePriceGraph(
     val selectedColor = MaterialTheme.colorScheme.tertiary
     val cheapestColor = MaterialTheme.colorScheme.error
     val selectedStatus = selectedPrice.bestWindowStatus(bestWindow)
+    val selectedPriceText = buildString {
+        append(selectedPrice.pricePencePerKwh.formatPrice())
+        append("p/kWh")
+        if (selectedStatus != null) {
+            append(" · ")
+            append(selectedStatus)
+        }
+    }
 
     Surface(
         shape = RoundedCornerShape(8.dp),
@@ -463,17 +492,23 @@ private fun PhoneInteractivePriceGraph(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
-            Text(
-                text = "${formatWindowRange(selectedPrice.validFrom, selectedPrice.validTo, now)} · ${selectedPrice.pricePencePerKwh.formatPrice()}p/kWh",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.testTag("phone_selected_price"),
-            )
-            if (selectedStatus != null) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("phone_selected_price"),
+            ) {
                 Text(
-                    text = selectedStatus,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = formatWindowRange(selectedPrice.validFrom, selectedPrice.validTo, now),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = selectedPriceText,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             Text(
@@ -487,19 +522,42 @@ private fun PhoneInteractivePriceGraph(
                     .fillMaxWidth()
                     .height(140.dp)
                     .testTag("phone_price_sparkline")
+                    .onKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyDown) {
+                            return@onKeyEvent false
+                        }
+                        when (event.key) {
+                            Key.DirectionLeft -> {
+                                selectedStart =
+                                    visiblePrices[(coercedSelectedIndex - 1).coerceAtLeast(0)].validFrom
+                                true
+                            }
+                            Key.DirectionRight -> {
+                                selectedStart =
+                                    visiblePrices[(coercedSelectedIndex + 1).coerceAtMost(visiblePrices.lastIndex)].validFrom
+                                true
+                            }
+                            else -> false
+                        }
+                    }
+                    .focusable()
                     .pointerInput(visiblePrices) {
                         fun updateSelection(x: Float) {
-                            selectedIndex = x.nearestPriceIndex(width = size.width, lastIndex = visiblePrices.lastIndex)
+                            selectedStart = visiblePrices[
+                                x.nearestPriceIndex(width = size.width, lastIndex = visiblePrices.lastIndex)
+                            ].validFrom
                         }
                         detectTapGestures { offset -> updateSelection(offset.x) }
                     }
                     .pointerInput(visiblePrices) {
                         fun updateSelection(x: Float) {
-                            selectedIndex = x.nearestPriceIndex(width = size.width, lastIndex = visiblePrices.lastIndex)
+                            selectedStart = visiblePrices[
+                                x.nearestPriceIndex(width = size.width, lastIndex = visiblePrices.lastIndex)
+                            ].validFrom
                         }
-                        detectDragGestures(
+                        detectHorizontalDragGestures(
                             onDragStart = { offset -> updateSelection(offset.x) },
-                            onDrag = { change, _ -> updateSelection(change.position.x) },
+                            onHorizontalDrag = { change, _ -> updateSelection(change.position.x) },
                         )
                     }
                     .semantics {
@@ -605,11 +663,14 @@ private fun Float.nearestPriceIndex(
 private fun PriceWindow.bestWindowStatus(bestWindow: BestWindow?): String? {
     if (bestWindow == null) return null
     return if (validTo > bestWindow.start && validFrom < bestWindow.end) {
-        "Inside best window"
+        "In cheapest window"
     } else {
         null
     }
 }
+
+private fun cheapestWindowLabel(durationMinutes: Int): String =
+    "Cheapest ${Duration.ofMinutes(durationMinutes.toLong()).toCompactDurationText()} window"
 
 @Composable
 private fun GraphTimeLabels(
