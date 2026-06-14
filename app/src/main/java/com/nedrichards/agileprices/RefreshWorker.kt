@@ -25,7 +25,9 @@ class RefreshWorker(
             createRepository(applicationContext).refresh()
         }.fold(
             onSuccess = { Result.success() },
-            onFailure = { Result.retry() },
+            // The repository records the failure for the UI; scheduled work should
+            // wait for the next normal cadence instead of adding retry wakeups.
+            onFailure = { Result.success() },
         )
     }
 

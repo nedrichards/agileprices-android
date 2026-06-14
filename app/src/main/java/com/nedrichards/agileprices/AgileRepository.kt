@@ -207,5 +207,9 @@ private fun Throwable.looksLikeDeviceClockTlsFailure(): Boolean {
 fun createRepository(context: Context): AgileRepository =
     AgileRepository(
         settingsStore = SettingsStore(context.applicationContext),
-        surfaceUpdater = WearPriceSurfaceUpdater(context.applicationContext),
+        surfaceUpdater = if (context.isWatchDevice()) {
+            WearPriceSurfaceUpdater(context.applicationContext)
+        } else {
+            null
+        },
     )

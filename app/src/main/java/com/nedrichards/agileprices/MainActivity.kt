@@ -1,7 +1,6 @@
 package com.nedrichards.agileprices
 
 import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -32,7 +31,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,6 +62,10 @@ import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.dynamicColorScheme
 import androidx.window.core.layout.WindowSizeClass
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -108,9 +110,6 @@ internal enum class AdaptiveWidthClass {
 internal fun chooseSurface(isWatchDevice: Boolean): AgileSurface =
     if (isWatchDevice) AgileSurface.Wear else AgileSurface.Phone
 
-private fun Context.isWatchDevice(): Boolean =
-    packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)
-
 @Composable
 private fun currentAdaptiveWidthClass(): AdaptiveWidthClass {
     val windowSizeClass = currentWindowAdaptiveInfo(supportLargeAndXLargeWidth = true).windowSizeClass
@@ -129,11 +128,13 @@ private fun AgilePricesApp(
     surface: AgileSurface,
     adaptiveWidthClass: AdaptiveWidthClass,
 ) {
-    val appState by repository.appState.collectAsState(
-        initial = AgileAppState(
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val appState by repository.appState.collectAsStateWithLifecycle(
+        initialValue = AgileAppState(
             settings = AgileSettings(null, null, 60, 480, emptyList(), null, null),
             snapshot = PriceSnapshot(null, null, null, null, SnapshotStatus.Loading),
         ),
+        lifecycle = lifecycleOwner.lifecycle,
     )
     val settings = appState.settings
     val snapshot = appState.snapshot
@@ -144,10 +145,12 @@ private fun AgilePricesApp(
     var choosingRegion by remember { mutableStateOf(false) }
 
     var now by remember { mutableStateOf(Instant.now()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            now = Instant.now()
-            delay(60_000)
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                now = Instant.now()
+                delay(60_000)
+            }
         }
     }
 
