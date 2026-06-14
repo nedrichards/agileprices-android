@@ -9,6 +9,12 @@ import org.junit.Test
 
 class SnapshotPresentationTest {
     @Test
+    fun surfaceChoiceUsesWearOnlyForWatchDevices() {
+        assertEquals(AgileSurface.Wear, chooseSurface(isWatchDevice = true))
+        assertEquals(AgileSurface.Phone, chooseSurface(isWatchDevice = false))
+    }
+
+    @Test
     fun loadedSnapshotShowsCurrentPrice() {
         val snapshot = PriceSnapshot(
             currentPrice = PriceWindow(

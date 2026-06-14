@@ -36,6 +36,20 @@ This plan tracks the work needed to move Agile Prices from working alpha to a re
 - [x] Tile and complication tests for loaded, no setup, stale, no data and negative price states.
 - [x] Instrumented or screenshot tests on small and large Wear OS profiles, including larger system font.
 
+## Phone/adaptive support
+
+- [x] Make the watch hardware feature optional so the same app package can install on phones while keeping Tile and complication services declared for watches.
+- [x] Route watch devices to the Wear surface and route non-watch devices to a Material 3 phone/adaptive surface without duplicating pricing or repository logic.
+- [x] Port setup, current price, remembered load duration, search horizon, best window, timing relationship, 24h graph, next slots, stale/error states and manual refresh to the phone surface.
+- [x] Preserve the existing 30-minute unique WorkManager refresh with network constraint; do not add polling, foreground services, notifications or widgets for the initial phone port.
+- [x] Add compact phone and adaptive width Compose tests for setup, loaded, stale, error, refresh, duration, horizon and region-change flows.
+- [ ] Install and smoke-test on a Pixel 9 or Pixel 9 emulator profile, including larger font scale.
+- [ ] Re-run Wear emulator/watch smoke tests to confirm Tile, complication and watch UI behavior after the universal manifest change.
+- [ ] Optional follow-up: Android home-screen widget.
+- [ ] Optional follow-up: notification for unusually cheap or negative-price windows.
+- [ ] Optional follow-up: watch/phone Data Layer sync.
+- [ ] Optional follow-up: landscape/tablet polish after the first Pixel 9 validation pass.
+
 ## Polish and listing
 
 - [x] Wear-native scroll indicators and verified swipe-to-dismiss/back behaviour.

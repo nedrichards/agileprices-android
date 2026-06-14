@@ -1,9 +1,12 @@
 package com.nedrichards.agileprices
 
+import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Bundle
-import androidx.activity.compose.BackHandler
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -35,6 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +62,8 @@ import androidx.wear.compose.material3.Card
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
+import androidx.wear.compose.material3.dynamicColorScheme
+import androidx.window.core.layout.WindowSizeClass
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -74,16 +80,55 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         val repository = createRepository(applicationContext)
+        val surface = chooseSurface(applicationContext.isWatchDevice())
 
         setContent {
-            AgilePricesApp(repository = repository)
+            AgilePricesApp(
+                repository = repository,
+                surface = surface,
+                adaptiveWidthClass = currentAdaptiveWidthClass(),
+            )
         }
     }
 }
 
+internal enum class AgileSurface {
+    Wear,
+    Phone,
+}
+
+internal enum class AdaptiveWidthClass {
+    Compact,
+    Medium,
+    Expanded,
+}
+
+internal fun chooseSurface(isWatchDevice: Boolean): AgileSurface =
+    if (isWatchDevice) AgileSurface.Wear else AgileSurface.Phone
+
+private fun Context.isWatchDevice(): Boolean =
+    packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)
+
 @Composable
-private fun AgilePricesApp(repository: AgileRepository) {
+private fun currentAdaptiveWidthClass(): AdaptiveWidthClass {
+    val windowSizeClass = currentWindowAdaptiveInfo(supportLargeAndXLargeWidth = true).windowSizeClass
+    return when {
+        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) ->
+            AdaptiveWidthClass.Expanded
+        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) ->
+            AdaptiveWidthClass.Medium
+        else -> AdaptiveWidthClass.Compact
+    }
+}
+
+@Composable
+private fun AgilePricesApp(
+    repository: AgileRepository,
+    surface: AgileSurface,
+    adaptiveWidthClass: AdaptiveWidthClass,
+) {
     val appState by repository.appState.collectAsState(
         initial = AgileAppState(
             settings = AgileSettings(null, null, 60, 480, emptyList(), null, null),
@@ -121,6 +166,8 @@ private fun AgilePricesApp(repository: AgileRepository) {
     }
 
     AgilePricesContent(
+        surface = surface,
+        adaptiveWidthClass = adaptiveWidthClass,
         snapshot = snapshot,
         settings = settings,
         now = now,
@@ -170,6 +217,8 @@ private fun AgilePricesApp(repository: AgileRepository) {
 
 @Composable
 internal fun AgilePricesContent(
+    surface: AgileSurface = AgileSurface.Wear,
+    adaptiveWidthClass: AdaptiveWidthClass = AdaptiveWidthClass.Compact,
     snapshot: PriceSnapshot,
     settings: AgileSettings,
     now: Instant,
@@ -188,31 +237,105 @@ internal fun AgilePricesContent(
         onDismissRegionPicker()
     }
 
-    MaterialTheme {
-        if (showingSetup) {
-            RegionSetupScreen(
-                busy = busy,
-                message = message ?: snapshot.message,
-                onSelectRegion = onSelectRegion,
-            )
-        } else {
-            PriceScreen(
-                snapshot = snapshot,
-                settings = settings,
-                now = now,
-                busy = busy,
-                message = message,
-                onRefresh = onRefresh,
-                onLoadDurationChanged = onLoadDurationChanged,
-                onSearchHorizonChanged = onSearchHorizonChanged,
-                onChangeRegion = onChangeRegion,
-            )
+    when (surface) {
+        AgileSurface.Wear -> AgilePricesWearContent(
+            showingSetup = showingSetup,
+            snapshot = snapshot,
+            settings = settings,
+            now = now,
+            busy = busy,
+            message = message,
+            onSelectRegion = onSelectRegion,
+            onRefresh = onRefresh,
+            onLoadDurationChanged = onLoadDurationChanged,
+            onSearchHorizonChanged = onSearchHorizonChanged,
+            onChangeRegion = onChangeRegion,
+        )
+        AgileSurface.Phone -> AgilePricesPhoneContent(
+            showingSetup = showingSetup,
+            widthClass = adaptiveWidthClass,
+            snapshot = snapshot,
+            settings = settings,
+            now = now,
+            busy = busy,
+            message = message,
+            onSelectRegion = onSelectRegion,
+            onRefresh = onRefresh,
+            onLoadDurationChanged = onLoadDurationChanged,
+            onSearchHorizonChanged = onSearchHorizonChanged,
+            onChangeRegion = onChangeRegion,
+        )
+    }
+}
+
+@Composable
+internal fun AgilePricesWearContent(
+    showingSetup: Boolean,
+    snapshot: PriceSnapshot,
+    settings: AgileSettings,
+    now: Instant,
+    busy: Boolean,
+    message: String?,
+    onSelectRegion: (ElectricityRegion) -> Unit,
+    onRefresh: () -> Unit,
+    onLoadDurationChanged: (Int) -> Unit,
+    onSearchHorizonChanged: (Int) -> Unit,
+    onChangeRegion: () -> Unit,
+) {
+    AgileWearTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+        ) {
+            if (showingSetup) {
+                WearRegionSetupScreen(
+                    busy = busy,
+                    message = message ?: snapshot.message,
+                    onSelectRegion = onSelectRegion,
+                )
+            } else {
+                WearPriceScreen(
+                    snapshot = snapshot,
+                    settings = settings,
+                    now = now,
+                    busy = busy,
+                    message = message,
+                    onRefresh = onRefresh,
+                    onLoadDurationChanged = onLoadDurationChanged,
+                    onSearchHorizonChanged = onSearchHorizonChanged,
+                    onChangeRegion = onChangeRegion,
+                )
+            }
         }
     }
 }
 
 @Composable
+private fun AgileWearTheme(content: @Composable () -> Unit) {
+    val dynamicColorScheme = dynamicColorScheme(LocalContext.current)
+    if (dynamicColorScheme != null) {
+        MaterialTheme(colorScheme = dynamicColorScheme, content = content)
+    } else {
+        MaterialTheme(content = content)
+    }
+}
+
+@Composable
 internal fun RegionSetupScreen(
+    busy: Boolean,
+    message: String?,
+    onSelectRegion: (ElectricityRegion) -> Unit,
+) {
+    WearRegionSetupScreen(
+        busy = busy,
+        message = message,
+        onSelectRegion = onSelectRegion,
+    )
+}
+
+@Composable
+internal fun WearRegionSetupScreen(
     busy: Boolean,
     message: String?,
     onSelectRegion: (ElectricityRegion) -> Unit,
@@ -274,6 +397,31 @@ internal fun RegionSetupScreen(
 
 @Composable
 internal fun PriceScreen(
+    snapshot: PriceSnapshot,
+    settings: AgileSettings,
+    now: Instant,
+    busy: Boolean,
+    message: String?,
+    onRefresh: () -> Unit,
+    onLoadDurationChanged: (Int) -> Unit,
+    onSearchHorizonChanged: (Int) -> Unit,
+    onChangeRegion: () -> Unit,
+) {
+    WearPriceScreen(
+        snapshot = snapshot,
+        settings = settings,
+        now = now,
+        busy = busy,
+        message = message,
+        onRefresh = onRefresh,
+        onLoadDurationChanged = onLoadDurationChanged,
+        onSearchHorizonChanged = onSearchHorizonChanged,
+        onChangeRegion = onChangeRegion,
+    )
+}
+
+@Composable
+internal fun WearPriceScreen(
     snapshot: PriceSnapshot,
     settings: AgileSettings,
     now: Instant,
@@ -537,7 +685,7 @@ private fun PriceSparkline(
     }
 }
 
-private fun sparklineLabel(prices: List<PriceWindow>, now: Instant): String {
+internal fun sparklineLabel(prices: List<PriceWindow>, now: Instant): String {
     val availableMinutes = Duration.between(now, prices.last().validTo)
         .toMinutes()
         .coerceAtLeast(30)
@@ -759,7 +907,7 @@ private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("d MM
 @Composable
 private fun PriceScreenPreview() {
     MaterialTheme {
-        PriceScreen(
+        WearPriceScreen(
             snapshot = PriceSnapshot(
                 currentPrice = PriceWindow(Instant.now(), Instant.now().plusSeconds(1800), 8.2),
                 bestWindow = BestWindow(Instant.now().plusSeconds(3600), Instant.now().plusSeconds(7200), -1.4),

@@ -41,6 +41,11 @@ val releaseStoreFile = releaseProperty("storeFile", "AGILE_PRICES_KEYSTORE_FILE"
 val releaseStorePassword = releaseProperty("storePassword", "AGILE_PRICES_KEYSTORE_PASSWORD")
 val releaseKeyAlias = releaseProperty("keyAlias", "AGILE_PRICES_KEY_ALIAS")
 val releaseKeyPassword = releaseProperty("keyPassword", "AGILE_PRICES_KEY_PASSWORD")
+val baseVersionCode = (
+    providers.gradleProperty("agilePrices.versionCode").orNull
+        ?: localProperties.getProperty("agilePrices.versionCode")
+        ?: "1"
+    ).toInt()
 val hasReleaseSigning = listOf(
     releaseStoreFile,
     releaseStorePassword,
@@ -67,11 +72,7 @@ android {
         applicationId = "com.nedrichards.agileprices"
         minSdk = 30
         targetSdk = 36
-        versionCode = (
-            providers.gradleProperty("agilePrices.versionCode").orNull
-                ?: localProperties.getProperty("agilePrices.versionCode")
-                ?: "1"
-            ).toInt()
+        versionCode = baseVersionCode * 10
         versionName = providers.gradleProperty("agilePrices.versionName").orNull
             ?: localProperties.getProperty("agilePrices.versionName")
             ?: "0.1.0"
@@ -111,6 +112,16 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
+
+    flavorDimensions += "formFactor"
+    productFlavors {
+        create("phone") {
+            dimension = "formFactor"
+        }
+        create("wear") {
+            dimension = "formFactor"
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -126,6 +137,19 @@ android {
       resources {
         excludes += "/META-INF/{AL2.0,LGPL2.1}"
       }
+    }
+}
+
+androidComponents {
+    onVariants(selector().withFlavor("formFactor" to "phone")) { variant ->
+        variant.outputs.forEach { output ->
+            output.versionCode.set(baseVersionCode * 10)
+        }
+    }
+    onVariants(selector().withFlavor("formFactor" to "wear")) { variant ->
+        variant.outputs.forEach { output ->
+            output.versionCode.set(baseVersionCode * 10 + 1)
+        }
     }
 }
 
@@ -151,6 +175,8 @@ dependencies {
   implementation(libs.androidx.lifecycle.viewmodel.compose)
 
   // Compose and Wear OS
+  implementation(libs.androidx.compose.material3)
+  implementation(libs.androidx.compose.material3.adaptive)
   implementation(libs.androidx.compose.ui)
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.wear.compose.foundation)
