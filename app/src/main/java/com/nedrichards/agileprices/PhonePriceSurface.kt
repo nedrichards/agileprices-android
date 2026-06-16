@@ -462,6 +462,13 @@ private fun PhoneInteractivePriceGraph(
     val minPrice = visiblePrices.minOf { it.pricePencePerKwh }
     val maxPrice = visiblePrices.maxOf { it.pricePencePerKwh }
     val priceRange = (maxPrice - minPrice).takeIf { it > 0.0 } ?: 1.0
+    val graphInsights = priceGraphInsights(
+        prices = visiblePrices,
+        cheapestPrice = cheapestPrice,
+        minPrice = minPrice,
+        maxPrice = maxPrice,
+        now = now,
+    )
     val lineColor = MaterialTheme.colorScheme.primary
     val markerColor = MaterialTheme.colorScheme.onSurface
     val baselineColor = MaterialTheme.colorScheme.outlineVariant
@@ -511,12 +518,6 @@ private fun PhoneInteractivePriceGraph(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            Text(
-                text = "Cheapest visible slot ${formatWindowRange(cheapestPrice.validFrom, cheapestPrice.validTo, now)} · ${cheapestPrice.pricePencePerKwh.formatPrice()}p/kWh",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("phone_cheapest_price"),
-            )
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -646,6 +647,23 @@ private fun PhoneInteractivePriceGraph(
                 middle = formatTime(visiblePrices[visiblePrices.lastIndex / 2].validFrom),
                 end = formatTime(visiblePrices.last().validTo),
             )
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.testTag("phone_price_insights"),
+            ) {
+                graphInsights.forEachIndexed { index, insight ->
+                    Text(
+                        text = insight,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = if (index == 0) {
+                            Modifier.testTag("phone_cheapest_price")
+                        } else {
+                            Modifier
+                        },
+                    )
+                }
+            }
         }
     }
 }
@@ -667,6 +685,28 @@ private fun PriceWindow.bestWindowStatus(bestWindow: BestWindow?): String? {
     } else {
         null
     }
+}
+
+private fun priceGraphInsights(
+    prices: List<PriceWindow>,
+    cheapestPrice: PriceWindow,
+    minPrice: Double,
+    maxPrice: Double,
+    now: Instant,
+): List<String> {
+    val insights = mutableListOf(
+        "Cheapest visible slot ${formatWindowRange(cheapestPrice.validFrom, cheapestPrice.validTo, now)} · ${cheapestPrice.pricePencePerKwh.formatPrice()}p/kWh",
+    )
+    val negativeSlots = prices.count { it.pricePencePerKwh < 0.0 }
+    if (negativeSlots > 0) {
+        val slotText = if (negativeSlots == 1) "half-hour" else "half-hours"
+        insights += "Negative prices for $negativeSlots $slotText"
+    }
+    val swing = maxPrice - minPrice
+    if (swing >= 10.0) {
+        insights += "Price swing ${swing.formatPrice()}p/kWh across the visible range"
+    }
+    return insights
 }
 
 private fun cheapestWindowLabel(durationMinutes: Int): String =
@@ -714,10 +754,6 @@ private fun PhoneControlsPanel(
                 value = settings.loadDurationMinutes,
                 range = 30f..480f,
                 steps = 14,
-                minusEnabled = settings.loadDurationMinutes > 30,
-                plusEnabled = settings.loadDurationMinutes < 480,
-                onMinus = { onLoadDurationChanged(settings.loadDurationMinutes - 30) },
-                onPlus = { onLoadDurationChanged(settings.loadDurationMinutes + 30) },
                 onValueChanged = { onLoadDurationChanged(it.roundToStep(30, 30, 480)) },
             )
             PhoneDurationControl(
@@ -726,10 +762,6 @@ private fun PhoneControlsPanel(
                 value = settings.searchHorizonMinutes,
                 range = 60f..1440f,
                 steps = 22,
-                minusEnabled = settings.searchHorizonMinutes > 60,
-                plusEnabled = settings.searchHorizonMinutes < 1440,
-                onMinus = { onSearchHorizonChanged(settings.searchHorizonMinutes - 60) },
-                onPlus = { onSearchHorizonChanged(settings.searchHorizonMinutes + 60) },
                 onValueChanged = { onSearchHorizonChanged(it.roundToStep(60, 60, 1440)) },
             )
         }
@@ -743,10 +775,6 @@ private fun PhoneDurationControl(
     value: Int,
     range: ClosedFloatingPointRange<Float>,
     steps: Int,
-    minusEnabled: Boolean,
-    plusEnabled: Boolean,
-    onMinus: () -> Unit,
-    onPlus: () -> Unit,
     onValueChanged: (Float) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -770,29 +798,8 @@ private fun PhoneDurationControl(
             onValueChange = onValueChanged,
             valueRange = range,
             steps = steps,
+            modifier = Modifier.semantics { contentDescription = "Adjust phone $label" },
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
-                onClick = onMinus,
-                enabled = minusEnabled,
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .semantics { contentDescription = "Decrease phone $label" },
-            ) {
-                Text("-")
-            }
-            OutlinedButton(
-                onClick = onPlus,
-                enabled = plusEnabled,
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .semantics { contentDescription = "Increase phone $label" },
-            ) {
-                Text("+")
-            }
-        }
     }
 }
 

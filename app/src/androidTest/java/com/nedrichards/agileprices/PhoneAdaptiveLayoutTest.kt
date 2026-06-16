@@ -116,9 +116,11 @@ class PhoneAdaptiveLayoutTest {
         compose.onAllNodesWithText("Now").assertCountEquals(0)
 
         compose.onNodeWithTag("phone_compact_price_list").performScrollToNode(hasText("Planning"))
-        compose.onNodeWithContentDescription("Increase phone Run time").performClick()
+        compose.onNodeWithContentDescription("Adjust phone Run time")
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(90f) }
         compose.onNodeWithText("1h 30m").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Increase phone Search horizon").performClick()
+        compose.onNodeWithContentDescription("Adjust phone Search horizon")
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(540f) }
         compose.onNodeWithText("9h").assertIsDisplayed()
 
         compose.onNodeWithTag("phone_compact_price_list").performScrollToNode(hasTestTag("phone_price_sparkline"))
@@ -126,6 +128,7 @@ class PhoneAdaptiveLayoutTest {
         compose.onNodeWithText("12:00-12:30").assertIsDisplayed()
         compose.onNodeWithText("8.2p/kWh").assertIsDisplayed()
         compose.onNodeWithTag("phone_cheapest_price").assertIsDisplayed()
+        compose.onNodeWithText("Price swing 13.0p/kWh across the visible range").assertIsDisplayed()
         compose.onNodeWithTag("phone_price_sparkline").assertIsDisplayed()
         compose.onAllNodesWithText("Next slots").assertCountEquals(0)
 
