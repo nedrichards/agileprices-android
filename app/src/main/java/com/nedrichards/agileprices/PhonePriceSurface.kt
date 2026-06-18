@@ -681,7 +681,7 @@ private fun Float.nearestPriceIndex(
 private fun PriceWindow.bestWindowStatus(bestWindow: BestWindow?): String? {
     if (bestWindow == null) return null
     return if (validTo > bestWindow.start && validFrom < bestWindow.end) {
-        "In cheapest window"
+        "In cheapest run"
     } else {
         null
     }
