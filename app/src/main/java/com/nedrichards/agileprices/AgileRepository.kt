@@ -34,7 +34,7 @@ class AgileRepository(
             ?: throw OctopusApiException("No Agile tariff was found for ${regionCodeToName[regionCode] ?: regionCode}.")
 
         settingsStore.saveSelectedTariff(regionCode = regionCode, tariffCode = tariff.code)
-        runCatching {
+        runCatchingPreservingCancellation {
             refresh(tariffCode = tariff.code)
         }.onFailure { error ->
             settingsStore.saveRefreshMessage(error.userFacingRefreshMessage())
@@ -76,7 +76,7 @@ class AgileRepository(
     ) {
         val now = clock()
         val productCode = extractProductCode(tariffCode)
-        runCatching {
+        runCatchingPreservingCancellation {
             octopusApi.standardUnitRates(
                 productCode = productCode,
                 tariffCode = tariffCode,
@@ -97,7 +97,7 @@ class AgileRepository(
             surfaceUpdater?.requestUpdates()
         }.onFailure { error ->
             if (allowTariffRollover && regionCode != null && error is OctopusApiException) {
-                val recovered = runCatching {
+                val recovered = runCatchingPreservingCancellation {
                     refreshLatestTariffForRegion(regionCode = regionCode, previousTariffCode = tariffCode)
                 }.isSuccess
                 if (recovered) return

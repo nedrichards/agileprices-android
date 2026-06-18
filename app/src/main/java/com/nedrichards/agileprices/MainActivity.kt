@@ -72,6 +72,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.geometry.CornerRadius
@@ -159,7 +160,6 @@ private fun AgilePricesApp(
     val autoRefreshKey = settings.autoRefreshKey()
     LaunchedEffect(
         settings.selectedTariffCode,
-        snapshot.status,
         autoRefreshKey,
         now,
     ) {
@@ -171,10 +171,16 @@ private fun AgilePricesApp(
             RefreshWorker.schedule(appContext)
             busy = true
             actionMessage = "Refreshing"
-            runCatching { repository.refresh() }
-                .onFailure { actionMessage = it.message ?: "Refresh failed" }
-                .onSuccess { actionMessage = null }
-            busy = false
+            try {
+                runCatchingPreservingCancellation { repository.refresh() }
+                    .onFailure { actionMessage = it.message ?: "Refresh failed" }
+                    .onSuccess { actionMessage = null }
+            } catch (error: CancellationException) {
+                actionMessage = null
+                throw error
+            } finally {
+                busy = false
+            }
         }
     }
 
@@ -191,24 +197,36 @@ private fun AgilePricesApp(
             scope.launch {
                 busy = true
                 actionMessage = "Loading ${region.name}"
-                runCatching { repository.configureRegion(region.code) }
-                    .onSuccess {
-                        RefreshWorker.schedule(appContext)
-                        actionMessage = null
-                        choosingRegion = false
-                    }
-                    .onFailure { actionMessage = it.message ?: "Setup failed" }
-                busy = false
+                try {
+                    runCatchingPreservingCancellation { repository.configureRegion(region.code) }
+                        .onSuccess {
+                            RefreshWorker.schedule(appContext)
+                            actionMessage = null
+                            choosingRegion = false
+                        }
+                        .onFailure { actionMessage = it.message ?: "Setup failed" }
+                } catch (error: CancellationException) {
+                    actionMessage = null
+                    throw error
+                } finally {
+                    busy = false
+                }
             }
         },
         onRefresh = {
             scope.launch {
                 busy = true
                 actionMessage = "Refreshing"
-                runCatching { repository.refresh() }
-                    .onSuccess { actionMessage = null }
-                    .onFailure { actionMessage = it.message ?: "Refresh failed" }
-                busy = false
+                try {
+                    runCatchingPreservingCancellation { repository.refresh() }
+                        .onSuccess { actionMessage = null }
+                        .onFailure { actionMessage = it.message ?: "Refresh failed" }
+                } catch (error: CancellationException) {
+                    actionMessage = null
+                    throw error
+                } finally {
+                    busy = false
+                }
             }
         },
         onLoadDurationChanged = { value ->

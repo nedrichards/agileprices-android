@@ -2,6 +2,7 @@ package com.nedrichards.agileprices
 
 import java.time.Instant
 import javax.net.ssl.SSLHandshakeException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
@@ -9,6 +10,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.fail
 import org.junit.Test
 
 class AgileRepositoryTest {
@@ -53,6 +55,37 @@ class AgileRepositoryTest {
             "Secure connection failed. Check the watch/emulator date and time, then try again.",
             saved.lastRefreshMessage,
         )
+    }
+
+    @Test
+    fun refreshCancellationDoesNotPersistInternalCoroutineMessage() = runTest {
+        val settings = FakeSettingsDataSource(
+            initial = AgileSettings(
+                selectedRegionCode = "_C",
+                selectedTariffCode = "E-1R-AGILE-24-10-01-C",
+                loadDurationMinutes = 60,
+                searchHorizonMinutes = 480,
+                cachedPrices = emptyList(),
+                fetchedAt = null,
+                lastRefreshMessage = "Previous refresh failed.",
+            ),
+        )
+        val repository = AgileRepository(
+            settingsStore = settings,
+            octopusApi = FakeOctopusClient(
+                standardRatesError = CancellationException("The coroutine scope left the composition"),
+            ),
+            clock = { fixedNow },
+        )
+
+        try {
+            repository.refresh()
+            fail("Expected refresh cancellation")
+        } catch (expected: CancellationException) {
+            assertEquals("The coroutine scope left the composition", expected.message)
+        }
+
+        assertEquals("Previous refresh failed.", settings.settings.first().lastRefreshMessage)
     }
 
     @Test
