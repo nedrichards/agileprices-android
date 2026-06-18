@@ -5,6 +5,8 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SnapshotPresentationTest {
@@ -64,6 +66,89 @@ class SnapshotPresentationTest {
     }
 
     @Test
+    fun launchRefreshRunsWhenConfiguredCacheIsEmpty() {
+        val now = Instant.parse("2026-03-21T12:00:00Z")
+
+        assertTrue(
+            shouldRefreshOnStart(
+                settings = settings(cachedPrices = emptyList()),
+                snapshot = PriceSnapshot(
+                    currentPrice = null,
+                    bestWindow = null,
+                    fetchedAt = null,
+                    validUntil = null,
+                    status = SnapshotStatus.Error,
+                ),
+                now = now,
+            ),
+        )
+    }
+
+    @Test
+    fun launchRefreshRunsWhenConfiguredCacheHasExpired() {
+        val now = Instant.parse("2026-03-21T12:00:00Z")
+
+        assertTrue(
+            shouldRefreshOnStart(
+                settings = settings(
+                    cachedPrices = listOf(
+                        PriceWindow(
+                            validFrom = Instant.parse("2026-03-21T11:00:00Z"),
+                            validTo = Instant.parse("2026-03-21T11:30:00Z"),
+                            pricePencePerKwh = 8.2,
+                        ),
+                    ),
+                ),
+                snapshot = PriceSnapshot(
+                    currentPrice = null,
+                    bestWindow = null,
+                    fetchedAt = Instant.parse("2026-03-21T10:58:00Z"),
+                    validUntil = Instant.parse("2026-03-21T11:30:00Z"),
+                    status = SnapshotStatus.Stale,
+                ),
+                now = now,
+            ),
+        )
+    }
+
+    @Test
+    fun launchRefreshWaitsWhenSetupIsMissingOrCacheIsCurrent() {
+        val now = Instant.parse("2026-03-21T12:00:00Z")
+        val currentPrice = PriceWindow(
+            validFrom = Instant.parse("2026-03-21T12:00:00Z"),
+            validTo = Instant.parse("2026-03-21T12:30:00Z"),
+            pricePencePerKwh = 8.2,
+        )
+
+        assertFalse(
+            shouldRefreshOnStart(
+                settings = settings(selectedTariffCode = null, cachedPrices = emptyList()),
+                snapshot = PriceSnapshot(
+                    currentPrice = null,
+                    bestWindow = null,
+                    fetchedAt = null,
+                    validUntil = null,
+                    status = SnapshotStatus.NoSetup,
+                ),
+                now = now,
+            ),
+        )
+        assertFalse(
+            shouldRefreshOnStart(
+                settings = settings(cachedPrices = listOf(currentPrice)),
+                snapshot = PriceSnapshot(
+                    currentPrice = currentPrice,
+                    bestWindow = null,
+                    fetchedAt = Instant.parse("2026-03-21T11:58:00Z"),
+                    validUntil = Instant.parse("2026-03-21T12:30:00Z"),
+                    status = SnapshotStatus.Loaded,
+                ),
+                now = now,
+            ),
+        )
+    }
+
+    @Test
     fun windowRangeLabelsTomorrow() {
         val zone = ZoneId.systemDefault()
         val reference = LocalDate.of(2026, 3, 21).atTime(LocalTime.NOON).atZone(zone).toInstant()
@@ -101,4 +186,18 @@ class SnapshotPresentationTest {
         assertEquals("Ends in 1h", window.endsInText(Instant.parse("2026-03-21T13:30:00Z")))
         assertEquals("Now / Ends 1h", window.compactTimingText(Instant.parse("2026-03-21T13:30:00Z")))
     }
+
+    private fun settings(
+        selectedTariffCode: String? = "E-1R-AGILE-26-05-01-C",
+        cachedPrices: List<PriceWindow>,
+    ): AgileSettings =
+        AgileSettings(
+            selectedRegionCode = selectedTariffCode?.let { "_C" },
+            selectedTariffCode = selectedTariffCode,
+            loadDurationMinutes = 60,
+            searchHorizonMinutes = 480,
+            cachedPrices = cachedPrices,
+            fetchedAt = null,
+            lastRefreshMessage = null,
+        )
 }

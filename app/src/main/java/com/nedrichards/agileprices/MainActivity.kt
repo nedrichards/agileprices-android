@@ -144,6 +144,7 @@ private fun AgilePricesApp(
     var busy by remember { mutableStateOf(false) }
     var actionMessage by remember { mutableStateOf<String?>(null) }
     var choosingRegion by remember { mutableStateOf(false) }
+    var lastAutoRefreshKey by remember { mutableStateOf<AutoRefreshKey?>(null) }
 
     var now by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(lifecycleOwner) {
@@ -155,17 +156,25 @@ private fun AgilePricesApp(
         }
     }
 
-    LaunchedEffect(settings.selectedTariffCode) {
-        if (!settings.selectedTariffCode.isNullOrBlank()) {
+    val autoRefreshKey = settings.autoRefreshKey()
+    LaunchedEffect(
+        settings.selectedTariffCode,
+        snapshot.status,
+        autoRefreshKey,
+        now,
+    ) {
+        if (
+            shouldRefreshOnStart(settings = settings, snapshot = snapshot, now = now) &&
+            lastAutoRefreshKey != autoRefreshKey
+        ) {
+            lastAutoRefreshKey = autoRefreshKey
             RefreshWorker.schedule(appContext)
-            if (settings.cachedPrices.isEmpty()) {
-                busy = true
-                actionMessage = "Refreshing"
-                runCatching { repository.refresh() }
-                    .onFailure { actionMessage = it.message ?: "Refresh failed" }
-                    .onSuccess { actionMessage = null }
-                busy = false
-            }
+            busy = true
+            actionMessage = "Refreshing"
+            runCatching { repository.refresh() }
+                .onFailure { actionMessage = it.message ?: "Refresh failed" }
+                .onSuccess { actionMessage = null }
+            busy = false
         }
     }
 
@@ -217,6 +226,30 @@ private fun AgilePricesApp(
             choosingRegion = false
         },
     )
+}
+
+private data class AutoRefreshKey(
+    val tariffCode: String?,
+    val validUntil: Instant?,
+    val hasCachedPrices: Boolean,
+)
+
+private fun AgileSettings.autoRefreshKey(): AutoRefreshKey =
+    AutoRefreshKey(
+        tariffCode = selectedTariffCode,
+        validUntil = cachedPrices.maxOfOrNull { it.validTo },
+        hasCachedPrices = cachedPrices.isNotEmpty(),
+    )
+
+internal fun shouldRefreshOnStart(
+    settings: AgileSettings,
+    snapshot: PriceSnapshot,
+    now: Instant,
+): Boolean {
+    if (settings.selectedTariffCode.isNullOrBlank()) return false
+    if (settings.cachedPrices.isEmpty()) return true
+    if (snapshot.status == SnapshotStatus.Stale) return true
+    return settings.cachedPrices.maxOfOrNull { it.validTo }?.let { it <= now } == true
 }
 
 @Composable
