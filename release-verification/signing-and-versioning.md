@@ -2,7 +2,8 @@
 
 Agile Prices uses a conditional release signing setup so normal debug and
 unsigned local builds continue to work without a keystore. A release build is
-signed only when all release signing values are present.
+signed only when all release signing values are present, unless local
+debug-signed release testing is explicitly enabled.
 
 ## Signing inputs
 
@@ -49,6 +50,22 @@ Unsigned development build:
 ```sh
 ./gradlew assembleDebug
 ```
+
+Unsigned release APKs for smoke testing:
+
+```sh
+./gradlew assemblePhoneRelease assembleWearRelease
+```
+
+Debug-signed release APKs for local device performance testing:
+
+```properties
+agilePrices.debugSignRelease=true
+```
+
+Add that entry to ignored `local.properties`. Release signing values still take
+precedence when present. Do not use a debug-signed release artifact for Play
+upload.
 
 Signed Android App Bundle:
 

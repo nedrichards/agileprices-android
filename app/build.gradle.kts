@@ -31,11 +31,18 @@ fun debugSigningProperty(name: String): String? =
     providers.gradleProperty("androidDebugSigning.$name").orNull
         ?: localProperties.getProperty("androidDebugSigning.$name")
 
+fun localBooleanProperty(name: String): Boolean {
+    val value = providers.gradleProperty(name).orNull
+        ?: localProperties.getProperty(name)
+    return value.equals("true", ignoreCase = true)
+}
+
 val debugStoreFile = debugSigningProperty("storeFile")
 val debugStorePassword = debugSigningProperty("storePassword") ?: "android"
 val debugKeyAlias = debugSigningProperty("keyAlias") ?: "androiddebugkey"
 val debugKeyPassword = debugSigningProperty("keyPassword") ?: debugStorePassword
 val hasStableDebugSigning = !debugStoreFile.isNullOrBlank()
+val debugSignRelease = localBooleanProperty("agilePrices.debugSignRelease")
 
 val releaseStoreFile = releaseProperty("storeFile", "AGILE_PRICES_KEYSTORE_FILE")
 val releaseStorePassword = releaseProperty("storePassword", "AGILE_PRICES_KEYSTORE_PASSWORD")
@@ -106,10 +113,11 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            if (hasReleaseSigning) {
-                signingConfig = signingConfigs.getByName("release")
-            } else {
-                signingConfig = signingConfigs.getByName("debug")
+            signingConfig = when {
+                hasReleaseSigning -> signingConfigs.getByName("release")
+                debugSignRelease && hasStableDebugSigning -> signingConfigs.getByName("stableDebug")
+                debugSignRelease -> signingConfigs.getByName("debug")
+                else -> null
             }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
