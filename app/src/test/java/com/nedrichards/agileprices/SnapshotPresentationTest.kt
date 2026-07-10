@@ -187,6 +187,31 @@ class SnapshotPresentationTest {
         assertEquals("Now / Ends 1h", window.compactTimingText(Instant.parse("2026-03-21T13:30:00Z")))
     }
 
+    @Test
+    fun timingGuidanceOmitsTimerHintsForWholeHours() {
+        val window = BestWindow(
+            start = Instant.parse("2026-03-21T13:00:00Z"),
+            end = Instant.parse("2026-03-21T14:00:00Z"),
+            averagePricePencePerKwh = 4.0,
+        )
+
+        assertEquals("Starts in 1h - Ends in 2h", window.timingGuidanceText(Instant.parse("2026-03-21T12:00:00Z")))
+    }
+
+    @Test
+    fun timingGuidanceAddsTimerHintsForPartialHours() {
+        val window = BestWindow(
+            start = Instant.parse("2026-03-21T16:49:00Z"),
+            end = Instant.parse("2026-03-21T20:18:00Z"),
+            averagePricePencePerKwh = 3.2,
+        )
+
+        assertEquals(
+            "Starts in 4h 32m (4h) - Ends in 8h 1m (9h)",
+            window.timingGuidanceText(Instant.parse("2026-03-21T12:17:00Z")),
+        )
+    }
+
     private fun settings(
         selectedTariffCode: String? = "E-1R-AGILE-26-05-01-C",
         cachedPrices: List<PriceWindow>,

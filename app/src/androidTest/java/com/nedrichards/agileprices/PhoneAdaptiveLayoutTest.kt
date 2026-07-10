@@ -78,6 +78,45 @@ class PhoneAdaptiveLayoutTest {
     }
 
     @Test
+    fun widePhoneSetupUsesAnAdaptiveRegionGrid() {
+        var selected: ElectricityRegion? = null
+
+        compose.setContent {
+            AgilePricesContent(
+                surface = AgileSurface.Phone,
+                adaptiveWidthClass = AdaptiveWidthClass.Expanded,
+                snapshot = PriceSnapshot(
+                    currentPrice = null,
+                    bestWindow = null,
+                    fetchedAt = null,
+                    validUntil = null,
+                    status = SnapshotStatus.NoSetup,
+                ),
+                settings = noSetupSettings(),
+                now = now,
+                busy = false,
+                message = null,
+                choosingRegion = false,
+                onSelectRegion = { selected = it },
+                onRefresh = {},
+                onLoadDurationChanged = {},
+                onSearchHorizonChanged = {},
+                onChangeRegion = {},
+                onDismissRegionPicker = {},
+            )
+        }
+
+        compose.onNodeWithTag("phone_setup_grid").assertIsDisplayed()
+        compose.onAllNodesWithTag("phone_setup_list").assertCountEquals(0)
+        compose.onNodeWithTag("phone_setup_grid").performScrollToNode(hasText("London"))
+        compose.onNodeWithText("London").performClick()
+
+        compose.runOnIdle {
+            assertEquals("_C", selected?.code)
+        }
+    }
+
+    @Test
     fun compactPhoneLoadedStateShowsTimelineGraphAndControls() {
         var settings by mutableStateOf(settings())
         var refreshed = false
@@ -108,8 +147,8 @@ class PhoneAdaptiveLayoutTest {
         compose.onAllNodesWithText("p/kWh now").assertCountEquals(0)
         compose.onAllNodesWithText("Current period 12:00-12:30").assertCountEquals(0)
         compose.onAllNodesWithText("Cheapest 1h window")[0].assertIsDisplayed()
-        compose.onNodeWithText("13:00-14:00").assertIsDisplayed()
-        compose.onNodeWithText("Starts in 1h - Ends in 2h").assertIsDisplayed()
+        compose.onNodeWithText("13:15-14:15").assertIsDisplayed()
+        compose.onNodeWithText("Starts in 1h 15m (1h) - Ends in 2h 15m (3h)").assertIsDisplayed()
         compose.onAllNodesWithText("Duration 1h").assertCountEquals(0)
         compose.onAllNodesWithText("Current price period").assertCountEquals(0)
         compose.onAllNodesWithTag("phone_time_relationship").assertCountEquals(0)
@@ -399,9 +438,9 @@ class PhoneAdaptiveLayoutTest {
                 pricePencePerKwh = 8.2,
             ),
             bestWindow = BestWindow(
-                start = Instant.parse("2026-01-05T13:00:00Z"),
-                end = Instant.parse("2026-01-05T14:00:00Z"),
-                averagePricePencePerKwh = 4.0,
+                start = Instant.parse("2026-01-05T13:15:00Z"),
+                end = Instant.parse("2026-01-05T14:15:00Z"),
+                averagePricePencePerKwh = 3.5,
             ),
             fetchedAt = settings.fetchedAt,
             validUntil = Instant.parse("2026-01-06T00:00:00Z"),

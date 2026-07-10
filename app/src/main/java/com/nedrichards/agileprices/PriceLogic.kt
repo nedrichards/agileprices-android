@@ -44,10 +44,10 @@ private fun findCheapestContinuousSlotSorted(
 ): BestWindow? {
     if (durationMinutes <= 0 || searchHorizonMinutes <= 0) return null
 
-    val firstCandidate = now.nextHalfHourBoundary()
+    val firstCandidate = now.nextMinuteBoundary()
     val duration = Duration.ofMinutes(durationMinutes.toLong())
     val cutoff = firstCandidate.plus(Duration.ofMinutes(searchHorizonMinutes.toLong()))
-    val candidates = generateSequence(firstCandidate) { it.plus(Duration.ofMinutes(30)) }
+    val candidates = generateSequence(firstCandidate) { it.plus(Duration.ofMinutes(1)) }
         .takeWhile { it < cutoff }
 
     return candidates.mapNotNull { start ->
@@ -57,14 +57,9 @@ private fun findCheapestContinuousSlotSorted(
     }.minByOrNull { it.averagePricePencePerKwh }
 }
 
-private fun Instant.nextHalfHourBoundary(): Instant {
-    val minute = atZone(ZoneId.systemDefault()).minute
-    val rounded = when {
-        minute == 0 || minute == 30 -> this
-        minute < 30 -> plus(Duration.ofMinutes((30 - minute).toLong()))
-        else -> plus(Duration.ofMinutes((60 - minute).toLong()))
-    }
-    return rounded.truncatedTo(ChronoUnit.MINUTES)
+private fun Instant.nextMinuteBoundary(): Instant {
+    val truncated = truncatedTo(ChronoUnit.MINUTES)
+    return if (truncated == this) truncated else truncated.plus(Duration.ofMinutes(1))
 }
 
 fun findCheapestBoundarySlot(

@@ -103,6 +103,9 @@ fun BestWindow.endsInText(now: Instant): String {
 fun BestWindow.compactTimingText(now: Instant): String =
     "${compactStartsText(now)} / ${compactEndsText(now)}"
 
+fun BestWindow.timingGuidanceText(now: Instant): String =
+    "${startGuidanceText(now)} - ${endGuidanceText(now)}"
+
 private fun BestWindow.compactStartsText(now: Instant): String {
     val remaining = Duration.between(now, start)
     return if (remaining.isNegative || remaining.isZero) {
@@ -119,6 +122,42 @@ private fun BestWindow.compactEndsText(now: Instant): String {
     } else {
         "Ends ${remaining.toCompactDurationText()}"
     }
+}
+
+private fun BestWindow.startGuidanceText(now: Instant): String =
+    timingWithHourlyHint(
+        text = startsInText(now),
+        remaining = Duration.between(now, start),
+        round = TimerRound.Down,
+    )
+
+private fun BestWindow.endGuidanceText(now: Instant): String =
+    timingWithHourlyHint(
+        text = endsInText(now),
+        remaining = Duration.between(now, end),
+        round = TimerRound.Up,
+    )
+
+private enum class TimerRound {
+    Down,
+    Up,
+}
+
+private fun timingWithHourlyHint(
+    text: String,
+    remaining: Duration,
+    round: TimerRound,
+): String {
+    if (remaining.isNegative || remaining.isZero) return text
+
+    val minutes = remaining.toMinutes()
+    val hours = when (round) {
+        TimerRound.Down -> minutes / 60
+        TimerRound.Up -> (minutes + 59) / 60
+    }
+    if (hours == 0L || minutes == hours * 60L) return text
+
+    return "$text (${hours}h)"
 }
 
 fun BestWindow.durationText(): String =

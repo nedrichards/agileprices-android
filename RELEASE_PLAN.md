@@ -49,6 +49,12 @@ This plan tracks the work needed to move Agile Prices from working alpha to a re
 - [ ] Optional follow-up: notification for unusually cheap or negative-price windows.
 - [ ] Optional follow-up: watch/phone Data Layer sync.
 - [ ] Optional follow-up: landscape/tablet polish after the first Pixel 9 validation pass.
+- [ ] Optional follow-up: revisit whole-hour hint pricing risk after real-world use; see `docs/whole-hour-hints-follow-up.md`.
+
+These remain deliberately deferred while a Play release is not being prepared.
+The Pixel 9 and Wear smoke tests are release-validation work, while a widget,
+notifications and Data Layer sync each need separate product, lifecycle and
+cross-device decisions rather than being folded into layout polish.
 
 ## Polish and listing
 

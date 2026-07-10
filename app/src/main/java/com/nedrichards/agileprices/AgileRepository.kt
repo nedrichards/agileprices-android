@@ -171,7 +171,7 @@ class AgileRepository(
                 .filter { it.validFrom >= now }
                 .take(8),
             sparklinePrices = validPrices
-                .filter { it.validTo > now && it.validFrom < graphHorizon }
+                .filter { it.validTo > now && it.validFrom < graphHorizon },
         )
     }
 

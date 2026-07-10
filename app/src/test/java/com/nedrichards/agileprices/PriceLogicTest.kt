@@ -46,7 +46,25 @@ class PriceLogicTest {
     }
 
     @Test
-    fun continuousSlotUsesHalfHourCadence() {
+    fun continuousSlotSearchesFromCurrentMinute() {
+        val slotStart = Instant.parse("2026-03-21T12:00:00Z")
+        val now = Instant.parse("2026-03-21T12:17:42Z")
+        val prices = windows(slotStart, listOf(1.0, 100.0, 100.0))
+
+        val slot = findCheapestContinuousSlot(
+            prices = prices,
+            now = now,
+            durationMinutes = 60,
+            searchHorizonMinutes = 90,
+        )
+
+        assertNotNull(slot)
+        assertEquals(Instant.parse("2026-03-21T12:18:00Z"), slot!!.start)
+        assertEquals(Instant.parse("2026-03-21T13:18:00Z"), slot.end)
+    }
+
+    @Test
+    fun continuousSlotCanStillChooseHalfHourWhenCheapest() {
         val slotStart = Instant.parse("2026-03-21T12:00:00Z")
         val now = Instant.parse("2026-03-21T12:17:00Z")
         val prices = windows(slotStart, listOf(100.0, 100.0, 1.0, 1.0, 100.0))
@@ -64,7 +82,7 @@ class PriceLogicTest {
     }
 
     @Test
-    fun continuousSlotRoundsUpWhenDurationFillsSearchWindow() {
+    fun continuousSlotUsesCurrentMinuteWhenDurationFillsSearchWindow() {
         val slotStart = Instant.parse("2026-03-21T12:00:00Z")
         val now = Instant.parse("2026-03-21T12:17:00Z")
         val prices = windows(slotStart, List(17) { 10.0 })
@@ -77,8 +95,8 @@ class PriceLogicTest {
         )
 
         assertNotNull(slot)
-        assertEquals(Instant.parse("2026-03-21T12:30:00Z"), slot!!.start)
-        assertEquals(Instant.parse("2026-03-21T20:30:00Z"), slot.end)
+        assertEquals(Instant.parse("2026-03-21T12:17:00Z"), slot!!.start)
+        assertEquals(Instant.parse("2026-03-21T20:17:00Z"), slot.end)
     }
 
     @Test

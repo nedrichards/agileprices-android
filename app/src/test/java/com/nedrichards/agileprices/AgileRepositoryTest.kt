@@ -217,6 +217,41 @@ class AgileRepositoryTest {
     }
 
     @Test
+    fun snapshotCarriesCheapestContinuousBestWindow() = runTest {
+        val now = fixedNow.plusSeconds(17 * 60)
+        val prices = listOf(100.0, 100.0, 100.0, 1.0, 1.0, 100.0, 100.0).mapIndexed { index, price ->
+            val validFrom = fixedNow.plusSeconds(index * 30L * 60L)
+            PriceWindow(
+                validFrom = validFrom,
+                validTo = validFrom.plusSeconds(30 * 60),
+                pricePencePerKwh = price,
+            )
+        }
+        val settings = FakeSettingsDataSource(
+            initial = AgileSettings(
+                selectedRegionCode = "_C",
+                selectedTariffCode = "E-1R-AGILE-24-10-01-C",
+                loadDurationMinutes = 60,
+                searchHorizonMinutes = 240,
+                cachedPrices = prices,
+                fetchedAt = fixedNow,
+                lastRefreshMessage = null,
+            ),
+        )
+        val repository = AgileRepository(
+            settingsStore = settings,
+            octopusApi = FakeOctopusClient(),
+            clock = { now },
+        )
+
+        val snapshot = repository.snapshots.first()
+        val bestWindow = requireNotNull(snapshot.bestWindow)
+
+        assertEquals(fixedNow.plusSeconds(90 * 60), bestWindow.start)
+        assertEquals(1.0, bestWindow.averagePricePencePerKwh, 0.0001)
+    }
+
+    @Test
     fun snapshotKeepsShortRowsButGraphsTwentyFourHoursIncludingCurrentSlot() = runTest {
         val now = fixedNow.plusSeconds(15 * 60)
         val prices = List(60) { index ->

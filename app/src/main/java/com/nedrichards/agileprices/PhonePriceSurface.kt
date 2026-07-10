@@ -22,6 +22,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -86,6 +89,7 @@ internal fun AgilePricesPhoneContent(
         ) { innerPadding ->
             if (showingSetup) {
                 PhoneRegionSetupScreen(
+                    widthClass = widthClass,
                     busy = busy,
                     message = message ?: snapshot.message,
                     onSelectRegion = onSelectRegion,
@@ -129,16 +133,64 @@ private fun AgilePhoneTheme(content: @Composable () -> Unit) {
 
 @Composable
 internal fun PhoneRegionSetupScreen(
+    widthClass: AdaptiveWidthClass,
     busy: Boolean,
     message: String?,
     onSelectRegion: (ElectricityRegion) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp)
+    val regionButton: @Composable (ElectricityRegion) -> Unit = { region ->
+        Button(
+            onClick = { onSelectRegion(region) },
+            enabled = !busy,
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = region.name,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Start,
+            )
+        }
+    }
+
+    if (widthClass != AdaptiveWidthClass.Compact) {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 220.dp),
+            modifier = modifier
+                .fillMaxSize()
+                .testTag("phone_setup_grid"),
+            contentPadding = contentPadding,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                Text(
+                    text = "Choose region",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            if (message != null) {
+                item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            items(ukElectricityRegions) { region -> regionButton(region) }
+        }
+        return
+    }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .testTag("phone_setup_list"),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
+        contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
@@ -158,18 +210,7 @@ internal fun PhoneRegionSetupScreen(
             }
         }
         items(ukElectricityRegions) { region ->
-            Button(
-                onClick = { onSelectRegion(region) },
-                enabled = !busy,
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = region.name,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Start,
-                )
-            }
+            regionButton(region)
         }
     }
 }
@@ -428,7 +469,7 @@ private fun PhoneBestWindowPanel(
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = "${bestWindow.startsInText(now)} - ${bestWindow.endsInText(now)}",
+                    text = bestWindow.timingGuidanceText(now),
                     style = MaterialTheme.typography.bodyLarge,
                 )
             }
