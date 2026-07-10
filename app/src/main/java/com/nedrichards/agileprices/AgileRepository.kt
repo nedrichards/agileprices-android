@@ -210,6 +210,6 @@ fun createRepository(context: Context): AgileRepository =
         surfaceUpdater = if (context.isWatchDevice()) {
             WearPriceSurfaceUpdater(context.applicationContext)
         } else {
-            null
+            PhonePriceSurfaceUpdater(context.applicationContext)
         },
     )

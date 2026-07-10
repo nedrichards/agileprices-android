@@ -45,7 +45,7 @@ This plan tracks the work needed to move Agile Prices from working alpha to a re
 - [x] Add compact phone and adaptive width Compose tests for setup, loaded, stale, error, refresh, duration, horizon and region-change flows.
 - [ ] Install and smoke-test on a Pixel 9 or Pixel 9 emulator profile, including larger font scale.
 - [ ] Re-run Wear emulator/watch smoke tests to confirm Tile, complication and watch UI behavior after the universal manifest change.
-- [ ] Optional follow-up: Android home-screen widget.
+- [x] Android home-screen widget using cached data and existing successful-refresh updates.
 - [ ] Optional follow-up: notification for unusually cheap or negative-price windows.
 - [ ] Optional follow-up: watch/phone Data Layer sync.
 - [ ] Optional follow-up: landscape/tablet polish after the first Pixel 9 validation pass.

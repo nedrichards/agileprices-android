@@ -17,6 +17,7 @@ The app is independent and is not affiliated with, endorsed by or sponsored by O
 - Wear app UI tuned for round watch screens.
 - Wear Tile showing current price and cheapest window.
 - Wear SHORT_TEXT complication showing current price.
+- Android home-screen widget showing cached current price and cheapest window.
 - Periodic background refresh with a network-connected WorkManager constraint and no retry wakeups between the normal 30-minute cadence.
 
 Out of scope for this version: account API keys, usage history, export tariffs, Go, Intelligent Go, spend analysis, notifications, home-screen widgets and watch/phone Data Layer sync.
@@ -106,6 +107,7 @@ After installing on a phone or resizable Android/ChromeOS window:
 4. Change run time and search horizon, then confirm the cheapest window guidance recomputes from cached rates.
 5. Confirm the interactive 24-hour graph supports left/right selection while vertical swipes or up/down navigation scroll the page.
 6. Confirm stale/error messaging and manual refresh remain usable at compact and wider window sizes.
+7. Add the Android home-screen widget and confirm it shows cached current-price and cheapest-window data, then opens the app when tapped.
 
 After installing on a Wear OS emulator or device:
 

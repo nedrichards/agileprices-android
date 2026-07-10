@@ -66,6 +66,48 @@ class SnapshotPresentationTest {
     }
 
     @Test
+    fun widgetPresentationUsesCachedPriceAndCheapestWindow() {
+        val presentation = widgetPresentation(
+            PriceSnapshot(
+                currentPrice = PriceWindow(
+                    validFrom = Instant.parse("2026-03-21T12:00:00Z"),
+                    validTo = Instant.parse("2026-03-21T12:30:00Z"),
+                    pricePencePerKwh = 8.2,
+                ),
+                bestWindow = BestWindow(
+                    start = Instant.parse("2026-03-21T13:00:00Z"),
+                    end = Instant.parse("2026-03-21T14:00:00Z"),
+                    averagePricePencePerKwh = 4.0,
+                ),
+                fetchedAt = Instant.parse("2026-03-21T11:58:00Z"),
+                validUntil = Instant.parse("2026-03-22T00:00:00Z"),
+                status = SnapshotStatus.Loaded,
+            ),
+        )
+
+        assertEquals("8.2p", presentation.value)
+        assertEquals("p/kWh now", presentation.caption)
+        assertEquals("13:00-14:00 4.0p", presentation.detail)
+    }
+
+    @Test
+    fun widgetPresentationDoesNotPresentStaleDataAsCurrent() {
+        val presentation = widgetPresentation(
+            PriceSnapshot(
+                currentPrice = null,
+                bestWindow = null,
+                fetchedAt = Instant.parse("2026-03-21T11:58:00Z"),
+                validUntil = Instant.parse("2026-03-21T12:00:00Z"),
+                status = SnapshotStatus.Stale,
+            ),
+        )
+
+        assertEquals("Stale", presentation.value)
+        assertEquals("Cached data expired", presentation.caption)
+        assertEquals("Cache ended ${formatDateTime(Instant.parse("2026-03-21T12:00:00Z"))}", presentation.detail)
+    }
+
+    @Test
     fun launchRefreshRunsWhenConfiguredCacheIsEmpty() {
         val now = Instant.parse("2026-03-21T12:00:00Z")
 
