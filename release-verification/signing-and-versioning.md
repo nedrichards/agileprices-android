@@ -30,13 +30,13 @@ AGILE_PRICES_KEYSTORE_FILE=/absolute/path/to/agile-prices-upload.jks \
 AGILE_PRICES_KEYSTORE_PASSWORD=... \
 AGILE_PRICES_KEY_ALIAS=upload \
 AGILE_PRICES_KEY_PASSWORD=... \
-./gradlew bundleRelease
+./gradlew bundlePhoneRelease bundleWearRelease
 ```
 
 Gradle project properties are supported too:
 
 ```sh
-./gradlew bundleRelease \
+./gradlew bundlePhoneRelease bundleWearRelease \
   -PagilePrices.storeFile=/absolute/path/to/agile-prices-upload.jks \
   -PagilePrices.storePassword=... \
   -PagilePrices.keyAlias=upload \
@@ -67,33 +67,38 @@ Add that entry to ignored `local.properties`. Release signing values still take
 precedence when present. Do not use a debug-signed release artifact for Play
 upload.
 
-Signed Android App Bundle:
+Signed phone and Wear Android App Bundles:
 
 ```sh
-./gradlew bundleRelease
+./gradlew bundlePhoneRelease bundleWearRelease
 ```
 
-The signed AAB is written to:
+The signed AABs are written to:
 
 ```text
-app/build/outputs/bundle/release/app-release.aab
+app/build/outputs/bundle/phoneRelease/app-phone-release.aab
+app/build/outputs/bundle/wearRelease/app-wear-release.aab
 ```
 
 ## Versioning
 
-The default version is currently:
+The default base version is currently:
 
 ```text
-versionCode=1
-versionName=0.1.0
+agilePrices.versionCode=1
+agilePrices.versionName=0.1.0
 ```
+
+The phone artifact turns that base into version code `10`; the Wear artifact
+uses `11`, keeping the two form-factor uploads distinct under one Play listing.
 
 Override it for a release with Gradle properties or ignored local properties:
 
 ```sh
-./gradlew bundleRelease \
+./gradlew bundlePhoneRelease bundleWearRelease \
   -PagilePrices.versionCode=2 \
   -PagilePrices.versionName=0.1.1
 ```
 
-Each Play upload must increase `versionCode`.
+Each Play release must increase the base `agilePrices.versionCode`; the build
+then derives the distinct phone and Wear version codes from it.

@@ -12,8 +12,8 @@ Octopus Agile prices, cheapest run-time windows, Tile and complication for Wear 
 
 Agile Prices is a standalone Android and Wear OS app for Octopus Agile electricity
 prices. It shows the current p/kWh price, the cheapest upcoming window for your
-chosen run time, independently priced whole-hour start and finish timer options, and the next half-hour prices
-directly on your device.
+chosen run time, independently priced whole-hour start and finish timer options,
+and the next half-hour prices directly on your device.
 
 Choose your UK electricity region manually or ask for an optional one-shot
 location suggestion that is processed locally and not stored. Always check the
@@ -22,19 +22,34 @@ rates for quick checks throughout the day. You can adjust the run time and searc
 horizon to find the cheapest run, with practical whole-hour appliance timer
 recommendations priced separately from the exact cheapest window.
 
-The app also includes a Wear OS Tile for glanceable current price and
-cheapest-window status, plus a SHORT_TEXT complication for showing the current
-Agile price on a watch face.
+On Android phones, a home-screen widget shows cached current-price and cheapest-
+window data, and an optional notification can stay visible while electricity is
+at or below zero. On Wear OS, a Tile provides glanceable current-price and
+cheapest-window status, while a SHORT_TEXT complication shows the current Agile
+price on a watch face.
 
 Agile Prices is independent and is not affiliated with, endorsed by or sponsored
 by Octopus Energy.
 
 ## Screenshot Set
 
-Capture fresh Wear OS screenshots for the Play store listing after the UI copy
-has settled. Keep generated screenshot dumps out of version control unless the
-images have been reviewed as current public assets. Recommended order and
-captions:
+Capture fresh phone and Wear OS screenshots for the Play store listing after the
+UI copy has settled. Keep generated screenshot dumps out of version control
+unless the images have been reviewed as current public assets.
+
+### Phone
+
+Recommended order and captions:
+
+1. Compare the exact cheapest window with independently priced Start in and Finish in appliance-timer options.
+2. Explore the next 24 hours on the interactive price graph, including the zero-price baseline when applicable.
+3. Choose a region manually or request an optional one-shot location suggestion.
+4. Add the home-screen widget for cached current-price and cheapest-window glances.
+5. Enable the optional alert for electricity prices at or below zero.
+
+### Wear OS
+
+Recommended order and captions:
 
 1. Compare starting now with independently calculated Start in and Finish in timer recommendations on your watch.
 2. Choose a region manually or request an optional one-shot location suggestion.
@@ -56,5 +71,6 @@ and Tile carousel environment rather than the app activity alone.
 ## What's New
 
 Initial Android and Wear OS release with current Octopus Agile price, cheapest
-run-time window search, priced appliance-timer recommendations, cached rates, Tile support and
-SHORT_TEXT complication support.
+run-time window search, priced appliance-timer recommendations, cached rates,
+phone widget and zero-price alerts, Tile support and SHORT_TEXT complication
+support.

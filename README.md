@@ -31,7 +31,9 @@ Out of scope for this version: account API keys, usage history, export tariffs, 
 
 - `app/src/main/java/com/nedrichards/agileprices/` - app, data, pricing logic, phone/adaptive UI, Wear UI, Tile, complication and worker code.
 - `app/src/test/java/com/nedrichards/agileprices/` - unit tests for tariff and price logic.
-- `app/src/main/AndroidManifest.xml` - Wear OS app, Tile and complication declarations.
+- `app/src/main/AndroidManifest.xml` - shared app, Tile and complication declarations.
+- `app/src/phone/AndroidManifest.xml` - phone widget and notification declarations.
+- `app/src/wear/AndroidManifest.xml` - Wear-only hardware requirement.
 - `gradle/libs.versions.toml` - dependency versions.
 
 ## Key implementation details
@@ -83,20 +85,20 @@ deployment check accepts it. Its debug APK is generated at:
 app/build/outputs/apk/wear/debug/app-wear-debug.apk
 ```
 
-For Google Play, build and upload separate phone and Wear artifacts under the
-same application listing:
+For Google Play, build and upload separate phone and Wear Android App Bundles
+under the same application listing. Release signing must be configured first:
 
 ```sh
-env GRADLE_USER_HOME="$PWD/.gradle-local" ./gradlew assemblePhoneRelease assembleWearRelease
+env GRADLE_USER_HOME="$PWD/.gradle-local" ./gradlew bundlePhoneRelease bundleWearRelease
 ```
 
-- Phone artifact: `app/build/outputs/apk/phone/release/app-phone-release-unsigned.apk`
-- Wear artifact: `app/build/outputs/apk/wear/release/app-wear-release-unsigned.apk`
+- Phone artifact: `app/build/outputs/bundle/phoneRelease/app-phone-release.aab`
+- Wear artifact: `app/build/outputs/bundle/wearRelease/app-wear-release.aab`
 
 The phone artifact does not declare the watch hardware feature. The Wear
 artifact declares `android.hardware.type.watch` as required and uses a distinct
-version code. This follows Google Play's Wear OS packaging requirement that
-watch APKs are separate from mobile APKs.
+version code. This follows Google Play's Wear OS packaging requirement that the
+watch and mobile builds are uploaded as separate artifacts.
 
 Release signing and versioning are documented in
 `release-verification/signing-and-versioning.md`. Debug builds do not require a
