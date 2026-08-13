@@ -10,17 +10,22 @@ The app is independent and is not affiliated with, endorsed by or sponsored by O
 - Phone and watch state is local to each installed device; there is no Data Layer sync yet.
 - Octopus Agile import tariffs only.
 - Region-based setup using the public Octopus products API.
+- Optional one-shot location suggestion for the electricity region, with an account-verification warning.
 - Direct-debit Agile tariff selection where Octopus publishes multiple payment methods for a region.
 - Current p/kWh price from standard unit rates.
-- Cheapest future window for the remembered run time from cached half-hour rates, plus whole-hour hints where useful.
+- Exact cheapest future window for the remembered run time, plus independently priced whole-hour start- and finish-timer recommendations.
 - Phone/adaptive Material 3 UI showing current price, cheapest remembered-duration window, planning controls and an interactive 24-hour price graph.
 - Wear app UI tuned for round watch screens.
 - Wear Tile showing current price and cheapest window.
 - Wear SHORT_TEXT complication showing current price.
 - Android home-screen widget showing cached current price and cheapest window.
+- Optional phone notification while the current price is at or below zero, with the time until it becomes positive.
 - Periodic background refresh with a network-connected WorkManager constraint and no retry wakeups between the normal 30-minute cadence.
 
-Out of scope for this version: account API keys, usage history, export tariffs, Go, Intelligent Go, spend analysis, notifications, home-screen widgets and watch/phone Data Layer sync.
+The location suggestion uses GB electricity-region boundaries obtained from
+[Northern Powergrid Open Data](https://northernpowergrid.opendatasoft.com/api/explore/v2.1/catalog/datasets/all_dno_boundaries/exports/geojson), under the [Northern Powergrid Open Data Licence v1.0](https://northernpowergrid.opendatasoft.com/p/opendatalicence/). Supported by Northern Powergrid Open Data. The suggestion is only a convenience: the electricity account remains authoritative, especially near boundaries.
+
+Out of scope for this version: account API keys, usage history, export tariffs, Go, Intelligent Go, spend analysis and watch/phone Data Layer sync.
 
 ## Project layout
 
@@ -42,7 +47,7 @@ The app stores its configuration and cached price windows in Preferences DataSto
 
 Prices are represented internally as pence per kWh. This keeps display and calculation units aligned with the Octopus standard unit-rate API and avoids unnecessary GBP conversion churn.
 
-The cheapest-window calculation tries continuous starts from the next minute so the run can use part of the current or upcoming half-hour when that is cheapest. When the cheapest window starts or ends part-way through an hour, the app can show rounded hour hints beside the exact timing for appliances that schedule by whole hours. Repeated local clock times around the UK autumn daylight-saving transition are disambiguated with `BST` or `GMT` in window ranges.
+The cheapest-window calculation tries continuous starts from the next minute so the run can use part of the current or upcoming half-hour when that is cheapest. Start-timer and finish-timer recommendations separately price runs scheduled at whole-hour delays, and only use windows fully covered by cached tariff data inside the search horizon. Repeated local clock times around the UK autumn daylight-saving transition are disambiguated with `BST` or `GMT` in phone window ranges.
 
 ## Build and test
 
@@ -102,18 +107,21 @@ release keystore.
 After installing on a phone or resizable Android/ChromeOS window:
 
 1. Launch Agile Prices.
-2. Choose a UK electricity region.
-3. Confirm the app loads a current price, current half-hour period, cheapest window and any hour timer hints for the selected run time.
-4. Change run time and search horizon, then confirm the cheapest window guidance recomputes from cached rates.
+2. Either choose a UK electricity region manually or press **Use my location**. Confirm location permission is requested only after that press, the resulting suggestion says to check the electricity account, and denying permission leaves manual selection usable.
+3. Confirm the app loads a current price, current half-hour period, exact cheapest window and independently priced start- and finish-timer recommendations for the selected run time.
+4. Change run time and search horizon, then confirm all three recommendations recompute from cached rates.
 5. Confirm the interactive 24-hour graph supports left/right selection while vertical swipes or up/down navigation scroll the page.
 6. Confirm stale/error messaging and manual refresh remain usable at compact and wider window sizes.
 7. Add the Android home-screen widget and confirm it shows cached current-price and cheapest-window data, then opens the app when tapped.
+8. Enable at-or-below-zero alerts, then confirm a negative price posts an ongoing notification, a zero price keeps it, and a £0.01-or-higher price removes it.
+9. Confirm the cheapest panel shows the exact range and price plus separate priced **Start in** and **Finish in** timer recommendations without wrapping awkwardly.
 
 After installing on a Wear OS emulator or device:
 
 1. Launch Agile Prices.
-2. Choose a UK electricity region.
-3. Confirm the app loads a current price and cheapest window for the selected run time.
-4. Change run time and search horizon, then confirm the cheapest window guidance recomputes from cached rates.
-5. Add the Tile and confirm it shows the current price plus cheapest window.
-6. Add the SHORT_TEXT complication and confirm it opens the app when tapped.
+2. Either choose a UK electricity region manually or press **Use my location**. Confirm location permission is requested only after that press, and denying permission leaves the scrollable manual list usable.
+3. Confirm the app shows the selected-duration average for starting now, followed by separate `Start in Nh` and `Finish in Nh` recommendations with their averages, without exact ranges or dates in the watch summary.
+4. Change run time and search horizon, then confirm both timer recommendations recompute from cached rates.
+5. With negative prices in the visible horizon, confirm the sparkline includes a horizontal zero-price baseline, including when every visible price is negative.
+6. Add the Tile and confirm it shows the current price plus cheapest window.
+7. Add the SHORT_TEXT complication and confirm it opens the app when tapped.

@@ -41,20 +41,19 @@ This plan tracks the work needed to move Agile Prices from working alpha to a re
 - [x] Make the watch hardware feature optional so the same app package can install on phones while keeping Tile and complication services declared for watches.
 - [x] Route watch devices to the Wear surface and route non-watch devices to a Material 3 phone/adaptive surface without duplicating pricing or repository logic.
 - [x] Port setup, current price, remembered load duration, search horizon, best window, timing relationship, 24h graph, next slots, stale/error states and manual refresh to the phone surface.
-- [x] Preserve the existing 30-minute unique WorkManager refresh with network constraint; do not add polling, foreground services, notifications or widgets for the initial phone port.
+- [x] Preserve the existing 30-minute unique WorkManager refresh with network constraint; the initial phone port added no polling, foreground services, notifications or widgets.
 - [x] Add compact phone and adaptive width Compose tests for setup, loaded, stale, error, refresh, duration, horizon and region-change flows.
 - [ ] Install and smoke-test on a Pixel 9 or Pixel 9 emulator profile, including larger font scale.
 - [ ] Re-run Wear emulator/watch smoke tests to confirm Tile, complication and watch UI behavior after the universal manifest change.
 - [x] Android home-screen widget using cached data and existing successful-refresh updates.
-- [ ] Optional follow-up: notification for unusually cheap or negative-price windows.
+- [x] Optional phone notification while current price is at or below zero, updating at each price boundary and ending at the first positive price.
 - [ ] Optional follow-up: watch/phone Data Layer sync.
 - [ ] Optional follow-up: landscape/tablet polish after the first Pixel 9 validation pass.
-- [ ] Optional follow-up: revisit whole-hour hint pricing risk after real-world use; see `docs/whole-hour-hints-follow-up.md`.
 
 These remain deliberately deferred while a Play release is not being prepared.
-The Pixel 9 and Wear smoke tests are release-validation work, while a widget,
-notifications and Data Layer sync each need separate product, lifecycle and
-cross-device decisions rather than being folded into layout polish.
+The Pixel 9 and Wear smoke tests are release-validation work, while Data Layer
+sync still needs a separate cross-device product decision rather than being
+folded into layout polish.
 
 ## Polish and listing
 
