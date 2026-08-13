@@ -7,6 +7,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PriceLogicTest {
@@ -46,7 +47,25 @@ class PriceLogicTest {
     }
 
     @Test
-    fun continuousSlotUsesHalfHourCadence() {
+    fun continuousSlotSearchesFromCurrentMinute() {
+        val slotStart = Instant.parse("2026-03-21T12:00:00Z")
+        val now = Instant.parse("2026-03-21T12:17:42Z")
+        val prices = windows(slotStart, listOf(1.0, 100.0, 100.0))
+
+        val slot = findCheapestContinuousSlot(
+            prices = prices,
+            now = now,
+            durationMinutes = 60,
+            searchHorizonMinutes = 90,
+        )
+
+        assertNotNull(slot)
+        assertEquals(Instant.parse("2026-03-21T12:18:00Z"), slot!!.start)
+        assertEquals(Instant.parse("2026-03-21T13:18:00Z"), slot.end)
+    }
+
+    @Test
+    fun continuousSlotCanStillChooseHalfHourWhenCheapest() {
         val slotStart = Instant.parse("2026-03-21T12:00:00Z")
         val now = Instant.parse("2026-03-21T12:17:00Z")
         val prices = windows(slotStart, listOf(100.0, 100.0, 1.0, 1.0, 100.0))
@@ -64,7 +83,7 @@ class PriceLogicTest {
     }
 
     @Test
-    fun continuousSlotRoundsUpWhenDurationFillsSearchWindow() {
+    fun continuousSlotUsesCurrentMinuteWhenDurationFillsSearchWindow() {
         val slotStart = Instant.parse("2026-03-21T12:00:00Z")
         val now = Instant.parse("2026-03-21T12:17:00Z")
         val prices = windows(slotStart, List(17) { 10.0 })
@@ -77,8 +96,8 @@ class PriceLogicTest {
         )
 
         assertNotNull(slot)
-        assertEquals(Instant.parse("2026-03-21T12:30:00Z"), slot!!.start)
-        assertEquals(Instant.parse("2026-03-21T20:30:00Z"), slot.end)
+        assertEquals(Instant.parse("2026-03-21T12:17:00Z"), slot!!.start)
+        assertEquals(Instant.parse("2026-03-21T20:17:00Z"), slot.end)
     }
 
     @Test
@@ -111,6 +130,178 @@ class PriceLogicTest {
                 searchHorizonMinutes = 120,
             )
         }
+    }
+
+    @Test
+    fun startTimerUsesWholeHourDelaysFromNextCompleteMinute() {
+        val now = Instant.parse("2026-03-21T12:17:42Z")
+        val prices = windows(
+            Instant.parse("2026-03-21T12:00:00Z"),
+            listOf(40.0, 40.0, 1.0, 1.0, 40.0, 40.0, 40.0),
+        )
+
+        val slot = findBestTimerWindow(prices, now, 60, 180, ApplianceTimerMode.Start)
+
+        assertNotNull(slot)
+        assertEquals(Instant.parse("2026-03-21T13:18:00Z"), slot!!.start)
+        assertEquals(Instant.parse("2026-03-21T14:18:00Z"), slot.end)
+        assertEquals(12.7, slot.averagePricePencePerKwh, 0.0001)
+    }
+
+    @Test
+    fun finishTimerUsesWholeHourDelaysFromNextCompleteMinute() {
+        val now = Instant.parse("2026-03-21T12:17:42Z")
+        val prices = windows(
+            Instant.parse("2026-03-21T12:00:00Z"),
+            listOf(40.0, 40.0, 1.0, 1.0, 1.0, 40.0, 40.0),
+        )
+
+        val slot = findBestTimerWindow(prices, now, 90, 180, ApplianceTimerMode.Finish)
+
+        assertNotNull(slot)
+        assertEquals(Instant.parse("2026-03-21T12:48:00Z"), slot!!.start)
+        assertEquals(Instant.parse("2026-03-21T14:18:00Z"), slot.end)
+        assertEquals(6.2, slot.averagePricePencePerKwh, 0.0001)
+    }
+
+    @Test
+    fun startAndFinishTimersCanChooseDifferentWindows() {
+        val now = Instant.parse("2026-03-21T12:17:42Z")
+        val prices = windows(
+            Instant.parse("2026-03-21T12:00:00Z"),
+            listOf(40.0, 40.0, 1.0, 1.0, 1.0, 40.0, 40.0),
+        )
+
+        val start = findBestTimerWindow(prices, now, 90, 180, ApplianceTimerMode.Start)
+        val finish = findBestTimerWindow(prices, now, 90, 180, ApplianceTimerMode.Finish)
+
+        assertNotNull(start)
+        assertNotNull(finish)
+        assertNotEquals(start!!.start, finish!!.start)
+        assertEquals(Instant.parse("2026-03-21T13:18:00Z"), start.start)
+        assertEquals(Instant.parse("2026-03-21T12:48:00Z"), finish.start)
+    }
+
+    @Test
+    fun timerWindowRejectsMissingTariffCoverage() {
+        val now = Instant.parse("2026-03-21T12:00:00Z")
+        val prices = listOf(
+            PriceWindow(now, now.plusSeconds(30 * 60), 1.0),
+            PriceWindow(now.plusSeconds(60 * 60), now.plusSeconds(90 * 60), 1.0),
+        )
+
+        assertNull(findBestTimerWindow(prices, now, 60, 60, ApplianceTimerMode.Start))
+    }
+
+    @Test
+    fun timerWindowMustFitCompletelyInsideHorizon() {
+        val now = Instant.parse("2026-03-21T12:00:00Z")
+        val prices = windows(now, List(4) { 1.0 })
+
+        assertNull(findBestTimerWindow(prices, now, 90, 60, ApplianceTimerMode.Start))
+        assertNull(findBestTimerWindow(prices, now, 90, 60, ApplianceTimerMode.Finish))
+    }
+
+    @Test
+    fun timerWindowCalculationRequiresSortedPrices() {
+        val now = Instant.parse("2026-03-21T12:00:00Z")
+        val prices = windows(now, listOf(1.0, 2.0, 3.0)).asReversed()
+
+        assertThrows(IllegalArgumentException::class.java) {
+            findBestTimerWindow(prices, now, 60, 120, ApplianceTimerMode.Start)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            findBestTimerWindow(prices, now, 60, 120, ApplianceTimerMode.Finish)
+        }
+    }
+
+    @Test
+    fun timerWindowTieKeepsEarliestDelay() {
+        val now = Instant.parse("2026-03-21T12:00:00Z")
+        val prices = windows(now, List(8) { 5.0 })
+
+        val start = findBestTimerWindow(prices, now, 60, 180, ApplianceTimerMode.Start)
+        val finish = findBestTimerWindow(prices, now, 60, 180, ApplianceTimerMode.Finish)
+
+        assertEquals(now, start?.start)
+        assertEquals(now.plusSeconds(60 * 60), finish?.end)
+    }
+
+    @Test
+    fun startNowWindowPricesTheFullRunFromNextCompleteMinute() {
+        val now = Instant.parse("2026-03-21T12:17:42Z")
+        val prices = windows(
+            Instant.parse("2026-03-21T12:00:00Z"),
+            listOf(10.0, 20.0, 40.0),
+        )
+
+        val slot = findLoadWindowStartingNow(prices, now, 60, 120)
+
+        assertEquals(Instant.parse("2026-03-21T12:18:00Z"), slot?.start)
+        assertEquals(Instant.parse("2026-03-21T13:18:00Z"), slot?.end)
+        assertEquals(24.0, slot!!.averagePricePencePerKwh, 0.0001)
+    }
+
+    @Test
+    fun startNowWindowRequiresCoverageAndHorizon() {
+        val now = Instant.parse("2026-03-21T12:00:00Z")
+        val gap = listOf(
+            PriceWindow(now, now.plusSeconds(30 * 60), 1.0),
+            PriceWindow(now.plusSeconds(60 * 60), now.plusSeconds(90 * 60), 1.0),
+        )
+
+        assertNull(findLoadWindowStartingNow(gap, now, 60, 120))
+        assertNull(findLoadWindowStartingNow(windows(now, List(4) { 1.0 }), now, 90, 60))
+    }
+
+    @Test
+    fun timerAlternativesCanBeIndependentlyUnavailable() {
+        val now = Instant.parse("2026-03-21T12:00:00Z")
+        val prices = windows(now, List(3) { 5.0 })
+
+        val start = findBestTimerWindow(prices, now, 90, 120, ApplianceTimerMode.Start)
+        val finish = findBestTimerWindow(prices, now, 90, 120, ApplianceTimerMode.Finish)
+
+        assertNotNull(start)
+        assertNull(finish)
+    }
+
+    @Test
+    fun timerRecommendationsPriceNegativeWindowAndAvoidSharpCliff() {
+        val now = Instant.parse("2026-03-21T12:17:42Z")
+        val prices = windows(
+            Instant.parse("2026-03-21T12:00:00Z"),
+            listOf(35.0, 35.0, -50.0, -50.0, 95.0, 95.0, 35.0, 35.0),
+        )
+
+        val start = findBestTimerWindow(prices, now, 60, 180, ApplianceTimerMode.Start)
+        val finish = findBestTimerWindow(prices, now, 60, 180, ApplianceTimerMode.Finish)
+
+        assertEquals(-6.5, start!!.averagePricePencePerKwh, 0.0001)
+        assertEquals(-6.5, finish!!.averagePricePencePerKwh, 0.0001)
+        assertTrue(start.averagePricePencePerKwh < 95.0)
+    }
+
+    @Test
+    fun timerDelaysRemainElapsedHoursAcrossUkSpringClockChange() {
+        val now = Instant.parse("2026-03-29T00:30:42Z")
+        val prices = windows(Instant.parse("2026-03-29T00:00:00Z"), List(8) { 5.0 })
+
+        val slot = findBestTimerWindow(prices, now, 60, 180, ApplianceTimerMode.Start)
+
+        assertEquals(Instant.parse("2026-03-29T00:31:00Z"), slot?.start)
+        assertEquals(Instant.parse("2026-03-29T01:31:00Z"), slot?.end)
+    }
+
+    @Test
+    fun timerDelaysRemainElapsedHoursAcrossUkAutumnClockChange() {
+        val now = Instant.parse("2026-10-25T00:30:42Z")
+        val prices = windows(Instant.parse("2026-10-25T00:00:00Z"), List(8) { 5.0 })
+
+        val slot = findBestTimerWindow(prices, now, 60, 180, ApplianceTimerMode.Finish)
+
+        assertEquals(Instant.parse("2026-10-25T00:31:00Z"), slot?.start)
+        assertEquals(Instant.parse("2026-10-25T01:31:00Z"), slot?.end)
     }
 
     @Test

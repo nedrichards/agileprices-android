@@ -151,6 +151,26 @@ class AgileRepository(
             durationMinutes = loadDurationMinutes,
             searchHorizonMinutes = searchHorizonMinutes,
         )
+        val startTimerWindow = findBestTimerWindow(
+            prices = validPrices,
+            now = now,
+            durationMinutes = loadDurationMinutes,
+            searchHorizonMinutes = searchHorizonMinutes,
+            mode = ApplianceTimerMode.Start,
+        )
+        val startNowWindow = findLoadWindowStartingNow(
+            prices = validPrices,
+            now = now,
+            durationMinutes = loadDurationMinutes,
+            searchHorizonMinutes = searchHorizonMinutes,
+        )
+        val finishTimerWindow = findBestTimerWindow(
+            prices = validPrices,
+            now = now,
+            durationMinutes = loadDurationMinutes,
+            searchHorizonMinutes = searchHorizonMinutes,
+            mode = ApplianceTimerMode.Finish,
+        )
         val validUntil = validPrices.maxOfOrNull { it.validTo }
         val status = when {
             validPrices.isEmpty() -> SnapshotStatus.Error
@@ -171,7 +191,10 @@ class AgileRepository(
                 .filter { it.validFrom >= now }
                 .take(8),
             sparklinePrices = validPrices
-                .filter { it.validTo > now && it.validFrom < graphHorizon }
+                .filter { it.validTo > now && it.validFrom < graphHorizon },
+            startNowWindow = startNowWindow,
+            startTimerWindow = startTimerWindow,
+            finishTimerWindow = finishTimerWindow,
         )
     }
 
@@ -210,6 +233,6 @@ fun createRepository(context: Context): AgileRepository =
         surfaceUpdater = if (context.isWatchDevice()) {
             WearPriceSurfaceUpdater(context.applicationContext)
         } else {
-            null
+            PhonePriceSurfaceUpdater(context.applicationContext)
         },
     )

@@ -3,4 +3,8 @@
     <string name="tile_label">Agile Prices</string>
     <string name="tile_description">Current Agile electricity price and cheapest window</string>
     <string name="complication_label">Agile current price</string>
+    <string name="widget_label">Agile Prices</string>
+    <string name="widget_description">Current Agile electricity price and cheapest upcoming window</string>
+    <string name="negative_price_alert_channel">At-or-below-zero price alerts</string>
+    <string name="negative_price_alert_channel_description">Current Agile prices at or below zero pence per kilowatt hour</string>
 </resources>

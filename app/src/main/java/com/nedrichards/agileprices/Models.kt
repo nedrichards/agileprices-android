@@ -31,6 +31,9 @@ data class PriceSnapshot(
     val message: String? = null,
     val upcoming: List<PriceWindow> = emptyList(),
     val sparklinePrices: List<PriceWindow> = emptyList(),
+    val startNowWindow: BestWindow? = null,
+    val startTimerWindow: BestWindow? = null,
+    val finishTimerWindow: BestWindow? = null,
 )
 
 data class AgileAppState(

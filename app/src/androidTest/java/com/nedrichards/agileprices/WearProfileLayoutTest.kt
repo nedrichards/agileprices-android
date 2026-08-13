@@ -48,8 +48,9 @@ class WearProfileLayoutTest {
 
         compose.onNodeWithText("8.2").assertIsDisplayed()
         compose.onNodeWithText("p/kWh now").assertIsDisplayed()
-        compose.onNodeWithText("13:00-14:00", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("4.0p/kWh avg").assertIsDisplayed()
+        compose.onNodeWithText("Start now · 8.2p avg").assertIsDisplayed()
+        compose.onNodeWithText("Start in 1h · 4.0p avg").assertIsDisplayed()
+        compose.onNodeWithText("Finish in 2h · 4.2p avg").assertIsDisplayed()
         compose.onNodeWithTag("price_list").performScrollToNode(hasText("Setup"))
         compose.onNodeWithText("Setup").assertIsDisplayed()
     }
@@ -74,13 +75,13 @@ class WearProfileLayoutTest {
 
         compose.onNodeWithText("8.2").assertIsDisplayed()
         compose.onNodeWithText("p/kWh now").assertIsDisplayed()
-        compose.onNodeWithTag("price_list").performScrollToNode(hasText("13:00-14:00", substring = true))
-        compose.onNodeWithText("13:00-14:00", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Start in 1h · 4.0p avg").assertIsDisplayed()
     }
 
     @Test
     fun smallRoundSetupProfileSupportsLargerFont() {
         var selected: ElectricityRegion? = null
+        var requestedLocation = false
 
         compose.setContent {
             WearProfile(width = 192.dp, height = 192.dp, fontScale = 1.3f) {
@@ -88,11 +89,13 @@ class WearProfileLayoutTest {
                     busy = false,
                     message = "Choose a region to load Agile prices",
                     onSelectRegion = { selected = it },
+                    onSuggestRegion = { requestedLocation = true },
                 )
             }
         }
 
         compose.onNodeWithText("Choose region").assertIsDisplayed()
+        compose.onNodeWithText("Use my location").performScrollTo().performClick()
         compose.onNodeWithText("London")
             .performScrollTo()
             .assertIsDisplayed()
@@ -100,6 +103,7 @@ class WearProfileLayoutTest {
         compose.onNodeWithText("London").performScrollTo().performClick()
         compose.runOnIdle {
             assertEquals("_C", selected?.code)
+            assertEquals(true, requestedLocation)
         }
     }
 
@@ -135,6 +139,21 @@ class WearProfileLayoutTest {
                 start = Instant.parse("2026-01-05T13:00:00Z"),
                 end = Instant.parse("2026-01-05T14:00:00Z"),
                 averagePricePencePerKwh = 4.0,
+            ),
+            startNowWindow = BestWindow(
+                start = now,
+                end = now.plusSeconds(60 * 60),
+                averagePricePencePerKwh = 8.2,
+            ),
+            startTimerWindow = BestWindow(
+                start = now.plusSeconds(60 * 60),
+                end = now.plusSeconds(2 * 60 * 60),
+                averagePricePencePerKwh = 4.0,
+            ),
+            finishTimerWindow = BestWindow(
+                start = now.plusSeconds(60 * 60),
+                end = now.plusSeconds(2 * 60 * 60),
+                averagePricePencePerKwh = 4.2,
             ),
             fetchedAt = now,
             validUntil = Instant.parse("2026-01-06T00:00:00Z"),
