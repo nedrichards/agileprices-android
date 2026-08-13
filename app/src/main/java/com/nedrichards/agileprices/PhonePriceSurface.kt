@@ -7,6 +7,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -57,11 +58,14 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import java.time.Duration
 import java.time.Instant
@@ -81,6 +85,8 @@ internal fun AgilePricesPhoneContent(
     onLoadDurationChanged: (Int) -> Unit,
     onSearchHorizonChanged: (Int) -> Unit,
     onChangeRegion: () -> Unit,
+    onSuggestRegion: () -> Unit,
+    onEnableNegativePriceAlerts: () -> Unit,
 ) {
     AgilePhoneTheme {
         Scaffold(
@@ -93,6 +99,7 @@ internal fun AgilePricesPhoneContent(
                     busy = busy,
                     message = message ?: snapshot.message,
                     onSelectRegion = onSelectRegion,
+                    onSuggestRegion = onSuggestRegion,
                     modifier = Modifier.padding(innerPadding),
                 )
             } else {
@@ -107,6 +114,7 @@ internal fun AgilePricesPhoneContent(
                     onLoadDurationChanged = onLoadDurationChanged,
                     onSearchHorizonChanged = onSearchHorizonChanged,
                     onChangeRegion = onChangeRegion,
+                    onEnableNegativePriceAlerts = onEnableNegativePriceAlerts,
                     modifier = Modifier.padding(innerPadding),
                 )
             }
@@ -137,6 +145,7 @@ internal fun PhoneRegionSetupScreen(
     busy: Boolean,
     message: String?,
     onSelectRegion: (ElectricityRegion) -> Unit,
+    onSuggestRegion: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp)
@@ -181,6 +190,20 @@ internal fun PhoneRegionSetupScreen(
                     )
                 }
             }
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                Text(
+                    text = "Optional. Uses one location fix locally and does not store it. Check the suggestion against your electricity account.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                OutlinedButton(
+                    onClick = onSuggestRegion,
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Use my location") }
+            }
             items(ukElectricityRegions) { region -> regionButton(region) }
         }
         return
@@ -209,6 +232,20 @@ internal fun PhoneRegionSetupScreen(
                 )
             }
         }
+        item {
+            Text(
+                text = "Optional. Uses one location fix locally and does not store it. Check the suggestion against your electricity account.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        item {
+            OutlinedButton(
+                onClick = onSuggestRegion,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Use my location") }
+        }
         items(ukElectricityRegions) { region ->
             regionButton(region)
         }
@@ -227,6 +264,7 @@ internal fun PhonePriceScreen(
     onLoadDurationChanged: (Int) -> Unit,
     onSearchHorizonChanged: (Int) -> Unit,
     onChangeRegion: () -> Unit,
+    onEnableNegativePriceAlerts: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (widthClass) {
@@ -240,6 +278,7 @@ internal fun PhonePriceScreen(
             onLoadDurationChanged = onLoadDurationChanged,
             onSearchHorizonChanged = onSearchHorizonChanged,
             onChangeRegion = onChangeRegion,
+            onEnableNegativePriceAlerts = onEnableNegativePriceAlerts,
             modifier = modifier,
         )
         AdaptiveWidthClass.Medium,
@@ -254,6 +293,7 @@ internal fun PhonePriceScreen(
             onLoadDurationChanged = onLoadDurationChanged,
             onSearchHorizonChanged = onSearchHorizonChanged,
             onChangeRegion = onChangeRegion,
+            onEnableNegativePriceAlerts = onEnableNegativePriceAlerts,
             modifier = modifier,
         )
     }
@@ -270,6 +310,7 @@ private fun CompactPhonePriceScreen(
     onLoadDurationChanged: (Int) -> Unit,
     onSearchHorizonChanged: (Int) -> Unit,
     onChangeRegion: () -> Unit,
+    onEnableNegativePriceAlerts: () -> Unit,
     modifier: Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -316,6 +357,7 @@ private fun CompactPhonePriceScreen(
                 message = message,
                 onRefresh = onRefresh,
                 onChangeRegion = onChangeRegion,
+                onEnableNegativePriceAlerts = onEnableNegativePriceAlerts,
             )
         }
     }
@@ -333,6 +375,7 @@ private fun WidePhonePriceScreen(
     onLoadDurationChanged: (Int) -> Unit,
     onSearchHorizonChanged: (Int) -> Unit,
     onChangeRegion: () -> Unit,
+    onEnableNegativePriceAlerts: () -> Unit,
     modifier: Modifier,
 ) {
     val paneMaxWidth = if (widthClass == AdaptiveWidthClass.Expanded) 420.dp else 360.dp
@@ -391,6 +434,7 @@ private fun WidePhonePriceScreen(
                     message = message,
                     onRefresh = onRefresh,
                     onChangeRegion = onChangeRegion,
+                    onEnableNegativePriceAlerts = onEnableNegativePriceAlerts,
                 )
             }
         }
@@ -460,6 +504,11 @@ private fun PhoneBestWindowPanel(
                 )
             } else {
                 Text(
+                    text = "Cheapest",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
                     text = formatWindowRange(bestWindow.start, bestWindow.end, now),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.SemiBold,
@@ -468,12 +517,60 @@ private fun PhoneBestWindowPanel(
                     text = "${bestWindow.averagePricePencePerKwh.formatPrice()}p/kWh average",
                     style = MaterialTheme.typography.titleMedium,
                 )
-                Text(
-                    text = bestWindow.timingGuidanceText(now),
-                    style = MaterialTheme.typography.bodyLarge,
-                )
+                val timerRecommendations = snapshot.timerRecommendationPresentations(now)
+                if (timerRecommendations.isNotEmpty()) {
+                    Text(
+                        text = "Appliance timers",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    timerRecommendations.forEach { recommendation ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(recommendation.label, style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                recommendation.timerValue,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                        MeasuredTimerDetail(recommendation)
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun MeasuredTimerDetail(recommendation: TimerRecommendationPresentation) {
+    val style = MaterialTheme.typography.bodyMedium
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val maximumWidthPx = with(density) { maxWidth.roundToPx() }
+        val displayedText = recommendation.detailOptions.firstOrNull { option ->
+            textMeasurer.measure(
+                text = option,
+                style = style,
+                softWrap = false,
+                maxLines = 1,
+            ).size.width <= maximumWidthPx
+        } ?: recommendation.detailOptions.last()
+        Text(
+            text = displayedText,
+            style = style,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.semantics {
+                contentDescription = recommendation.detail
+            }.testTag("phone_timer_detail_${recommendation.label.lowercase().replace(' ', '_')}"),
+        )
     }
 }
 
@@ -852,6 +949,7 @@ private fun PhoneStatusAndSetupPanel(
     message: String?,
     onRefresh: () -> Unit,
     onChangeRegion: () -> Unit,
+    onEnableNegativePriceAlerts: () -> Unit,
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
@@ -883,6 +981,21 @@ private fun PhoneStatusAndSetupPanel(
             PhoneSetupLine("Tariff", settings.selectedTariffCode ?: "No tariff")
             PhoneSetupLine("Updated", snapshot.fetchedAt?.let { formatDateTime(it) } ?: "Not refreshed yet")
             PhoneSetupLine("Cache", snapshot.validUntil?.let { "Until ${formatDateTime(it)}" } ?: "No cached rates")
+            PhoneSetupLine(
+                "Alerts",
+                if (NegativePriceNotifier.canPost(LocalContext.current)) "At/below zero" else "Off",
+            )
+            if (!NegativePriceNotifier.canPost(LocalContext.current)) {
+                OutlinedButton(
+                    onClick = onEnableNegativePriceAlerts,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("phone_enable_negative_alerts"),
+                ) {
+                    Text("Enable at-or-below-zero alerts")
+                }
+            }
             PhoneSetupLine("Data", "Octopus Energy API")
             OutlinedButton(
                 onClick = onChangeRegion,

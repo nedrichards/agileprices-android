@@ -43,6 +43,7 @@ class PhonePriceSurfaceUpdater(
             runCatching {
                 AgilePriceWidget().updateAll(appContext)
             }
+            NegativePriceNotifier.update(appContext)
         }
     }
 }

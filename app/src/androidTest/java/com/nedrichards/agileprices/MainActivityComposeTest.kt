@@ -79,6 +79,21 @@ class MainActivityComposeTest {
                             end = Instant.parse("2026-01-05T14:00:00Z"),
                             averagePricePencePerKwh = -2.0,
                         ),
+                        startNowWindow = BestWindow(
+                            start = now,
+                            end = now.plusSeconds(60 * 60),
+                            averagePricePencePerKwh = 1.0,
+                        ),
+                        startTimerWindow = BestWindow(
+                            start = now.plusSeconds(60 * 60),
+                            end = now.plusSeconds(2 * 60 * 60),
+                            averagePricePencePerKwh = -2.0,
+                        ),
+                        finishTimerWindow = BestWindow(
+                            start = now.plusSeconds(2 * 60 * 60),
+                            end = now.plusSeconds(3 * 60 * 60),
+                            averagePricePencePerKwh = -1.5,
+                        ),
                         fetchedAt = now,
                         validUntil = Instant.parse("2026-01-06T00:00:00Z"),
                         status = SnapshotStatus.Loaded,
@@ -100,10 +115,9 @@ class MainActivityComposeTest {
         compose.onNodeWithText("-1.2").assertIsDisplayed()
         compose.onNodeWithText("p/kWh now").assertIsDisplayed()
         compose.onNodeWithTag("price_scroll_indicator").fetchSemanticsNode()
-        compose.onNodeWithTag("price_list").performScrollToNode(hasText("13:00-14:00", substring = true))
-        compose.onNodeWithText("13:00-14:00", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("-2.0p/kWh avg").assertIsDisplayed()
-        compose.onNodeWithText("In 1h / Ends 2h").assertIsDisplayed()
+        compose.onNodeWithText("Start now · 1.0p avg").assertIsDisplayed()
+        compose.onNodeWithText("Start in 1h · -2.0p avg").assertIsDisplayed()
+        compose.onNodeWithText("Finish in 3h · -1.5p avg").assertIsDisplayed()
         compose.onNodeWithTag("price_list").performScrollToNode(hasTestTag("price_sparkline"))
         compose.onNodeWithText("Next 24h").assertIsDisplayed()
         compose.onNodeWithTag("price_sparkline").assertIsDisplayed()

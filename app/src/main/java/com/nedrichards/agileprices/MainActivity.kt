@@ -1,11 +1,16 @@
 package com.nedrichards.agileprices
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -30,6 +35,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +72,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.core.content.ContextCompat
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -142,10 +149,59 @@ private fun AgilePricesApp(
     val snapshot = appState.snapshot
     val appContext = LocalContext.current.applicationContext
     val scope = rememberCoroutineScope()
+    val locationSuggester = remember { RegionLocationSuggester(appContext) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            scope.launch { NegativePriceNotifier.update(appContext) }
+        }
+    }
     var busy by remember { mutableStateOf(false) }
     var actionMessage by remember { mutableStateOf<String?>(null) }
     var choosingRegion by remember { mutableStateOf(false) }
     var lastAutoRefreshKey by remember { mutableStateOf<AutoRefreshKey?>(null) }
+
+    DisposableEffect(locationSuggester) {
+        onDispose { locationSuggester.close() }
+    }
+
+    val applySuggestedRegion: (Result<String>) -> Unit = { result ->
+        result.onSuccess { code ->
+            val region = ukElectricityRegions.firstOrNull { it.code == code }
+            if (region == null) {
+                busy = false
+                actionMessage = "The location did not match a known electricity region."
+            } else {
+                scope.launch {
+                    busy = true
+                    actionMessage = "Suggested ${region.name}. Check this against your electricity account."
+                    try {
+                        runCatchingPreservingCancellation { repository.configureRegion(region.code) }
+                            .onSuccess {
+                                RefreshWorker.schedule(appContext)
+                                choosingRegion = false
+                            }
+                            .onFailure { actionMessage = it.message ?: "Setup failed" }
+                    } finally {
+                        busy = false
+                    }
+                }
+            }
+        }.onFailure {
+            busy = false
+            actionMessage = it.message ?: "Could not request your location. Choose your region manually."
+        }
+    }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) locationSuggester.request(applySuggestedRegion)
+        else {
+            busy = false
+            actionMessage = "Location permission was not granted. Choose your region manually."
+        }
+    }
 
     var now by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(lifecycleOwner) {
@@ -243,6 +299,28 @@ private fun AgilePricesApp(
             actionMessage = null
             choosingRegion = false
         },
+        onSuggestRegion = {
+            busy = true
+            actionMessage = "Finding your electricity region…"
+            if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                locationSuggester.request(applySuggestedRegion)
+            } else {
+                locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+            }
+        },
+        onEnableNegativePriceAlerts = {
+            if (
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(
+                    appContext,
+                    Manifest.permission.POST_NOTIFICATIONS,
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                scope.launch { NegativePriceNotifier.update(appContext) }
+            }
+        },
     )
 }
 
@@ -286,6 +364,8 @@ internal fun AgilePricesContent(
     onSearchHorizonChanged: (Int) -> Unit,
     onChangeRegion: () -> Unit,
     onDismissRegionPicker: () -> Unit,
+    onSuggestRegion: () -> Unit = {},
+    onEnableNegativePriceAlerts: () -> Unit = {},
 ) {
     val showingSetup = choosingRegion || snapshot.status == SnapshotStatus.NoSetup
     BackHandler(enabled = choosingRegion && snapshot.status != SnapshotStatus.NoSetup) {
@@ -305,6 +385,7 @@ internal fun AgilePricesContent(
             onLoadDurationChanged = onLoadDurationChanged,
             onSearchHorizonChanged = onSearchHorizonChanged,
             onChangeRegion = onChangeRegion,
+            onSuggestRegion = onSuggestRegion,
         )
         AgileSurface.Phone -> AgilePricesPhoneContent(
             showingSetup = showingSetup,
@@ -319,6 +400,8 @@ internal fun AgilePricesContent(
             onLoadDurationChanged = onLoadDurationChanged,
             onSearchHorizonChanged = onSearchHorizonChanged,
             onChangeRegion = onChangeRegion,
+            onSuggestRegion = onSuggestRegion,
+            onEnableNegativePriceAlerts = onEnableNegativePriceAlerts,
         )
     }
 }
@@ -336,6 +419,7 @@ internal fun AgilePricesWearContent(
     onLoadDurationChanged: (Int) -> Unit,
     onSearchHorizonChanged: (Int) -> Unit,
     onChangeRegion: () -> Unit,
+    onSuggestRegion: () -> Unit,
 ) {
     AgileWearTheme {
         Box(
@@ -348,6 +432,7 @@ internal fun AgilePricesWearContent(
                     busy = busy,
                     message = message ?: snapshot.message,
                     onSelectRegion = onSelectRegion,
+                    onSuggestRegion = onSuggestRegion,
                 )
             } else {
                 WearPriceScreen(
@@ -381,11 +466,13 @@ internal fun RegionSetupScreen(
     busy: Boolean,
     message: String?,
     onSelectRegion: (ElectricityRegion) -> Unit,
+    onSuggestRegion: () -> Unit = {},
 ) {
     WearRegionSetupScreen(
         busy = busy,
         message = message,
         onSelectRegion = onSelectRegion,
+        onSuggestRegion = onSuggestRegion,
     )
 }
 
@@ -394,6 +481,7 @@ internal fun WearRegionSetupScreen(
     busy: Boolean,
     message: String?,
     onSelectRegion: (ElectricityRegion) -> Unit,
+    onSuggestRegion: () -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
     val focusRequester = remember { FocusRequester() }
@@ -433,6 +521,18 @@ internal fun WearRegionSetupScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+            Text(
+                text = "Optional. Uses one location fix locally and does not store it. Check the suggestion against your electricity account.",
+                fontSize = 10.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            PillAction(
+                text = "Use my location",
+                enabled = !busy,
+                onClick = onSuggestRegion,
+                filled = false,
+            )
             ukElectricityRegions.forEach { region ->
                 PillAction(
                     text = region.name,
@@ -644,8 +744,9 @@ private fun PriceSparkline(
     if (visiblePrices.size < 2) return
     val label = sparklineLabel(visiblePrices, now)
 
-    val minPrice = visiblePrices.minOf { it.pricePencePerKwh }
-    val maxPrice = visiblePrices.maxOf { it.pricePencePerKwh }
+    val scale = wearSparklineScale(visiblePrices)
+    val minPrice = scale.minimum
+    val maxPrice = scale.maximum
     val priceRange = (maxPrice - minPrice).takeIf { it > 0.0 } ?: 1.0
     val lineColor = MaterialTheme.colorScheme.primary
     val markerColor = MaterialTheme.colorScheme.onSurface
@@ -674,7 +775,11 @@ private fun PriceSparkline(
                 .height(42.dp)
                 .testTag("price_sparkline")
                 .semantics {
-                    contentDescription = "$label price graph"
+                    contentDescription = if (scale.showsZeroBaseline) {
+                        "$label price graph with zero-price baseline"
+                    } else {
+                        "$label price graph"
+                    }
                 },
         ) {
             val top = 3f
@@ -706,13 +811,13 @@ private fun PriceSparkline(
                 )
             }
 
-            if (minPrice < 0.0 && maxPrice > 0.0) {
+            if (scale.showsZeroBaseline) {
                 val zeroY = yFor(0.0)
                 drawLine(
                     color = baselineColor,
                     start = Offset(0f, zeroY),
                     end = Offset(size.width, zeroY),
-                    strokeWidth = 1f,
+                    strokeWidth = 1.5f,
                 )
             }
 
@@ -740,6 +845,23 @@ private fun PriceSparkline(
     }
 }
 
+internal data class WearSparklineScale(
+    val minimum: Double,
+    val maximum: Double,
+    val showsZeroBaseline: Boolean,
+)
+
+internal fun wearSparklineScale(prices: List<PriceWindow>): WearSparklineScale {
+    val dataMinimum = prices.minOf { it.pricePencePerKwh }
+    val dataMaximum = prices.maxOf { it.pricePencePerKwh }
+    val showsZeroBaseline = dataMinimum < 0.0
+    return WearSparklineScale(
+        minimum = dataMinimum,
+        maximum = if (showsZeroBaseline) maxOf(0.0, dataMaximum) else dataMaximum,
+        showsZeroBaseline = showsZeroBaseline,
+    )
+}
+
 internal fun sparklineLabel(prices: List<PriceWindow>, now: Instant): String {
     val availableMinutes = Duration.between(now, prices.last().validTo)
         .toMinutes()
@@ -753,7 +875,7 @@ private fun PriceHeader(
     snapshot: PriceSnapshot,
     now: Instant,
 ) {
-    val bestWindow = snapshot.bestWindow
+    val timerPresentation = snapshot.wearTimerPresentation(now)
 
     Column(
         modifier = Modifier
@@ -783,23 +905,31 @@ private fun PriceHeader(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
-            Text(
-                text = bestWindow?.let { formatWindowRange(it.start, it.end, now) } ?: "Best window --",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = bestWindow?.averagePricePencePerKwh?.let { "${it.formatPrice()}p/kWh avg" } ?: "No complete window",
-                fontSize = 10.sp,
-                textAlign = TextAlign.Center,
-            )
-            if (bestWindow != null) {
+            if (timerPresentation.startNowText == null && timerPresentation.recommendationRows.isEmpty()) {
                 Text(
-                    text = bestWindow.compactTimingText(now),
-                    fontSize = 9.sp,
+                    text = "No complete window",
+                    fontSize = 10.sp,
                     textAlign = TextAlign.Center,
                 )
+            } else {
+                timerPresentation.startNowText?.let { startNowText ->
+                    Text(
+                        text = startNowText,
+                        fontSize = 10.sp,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                timerPresentation.recommendationRows.forEach { row ->
+                    Text(
+                        text = row,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
     }

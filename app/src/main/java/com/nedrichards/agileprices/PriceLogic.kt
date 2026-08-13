@@ -5,6 +5,11 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
+enum class ApplianceTimerMode {
+    Start,
+    Finish,
+}
+
 fun extractProductCode(selectedTariffCode: String): String =
     selectedTariffCode.split("-").drop(2).dropLast(1).joinToString("-")
 
@@ -36,6 +41,58 @@ fun findCheapestContinuousSlot(
     return findCheapestContinuousSlotSorted(prices, now, durationMinutes, searchHorizonMinutes)
 }
 
+fun findBestTimerWindow(
+    prices: List<PriceWindow>,
+    now: Instant,
+    durationMinutes: Int,
+    searchHorizonMinutes: Int,
+    mode: ApplianceTimerMode,
+): BestWindow? {
+    prices.requireSortedByValidFrom()
+    if (durationMinutes <= 0 || searchHorizonMinutes <= 0) return null
+
+    val anchor = now.nextMinuteBoundary()
+    val duration = Duration.ofMinutes(durationMinutes.toLong())
+    val cutoff = anchor.plus(Duration.ofMinutes(searchHorizonMinutes.toLong()))
+    val maximumDelayHours = searchHorizonMinutes / 60
+
+    return (0..maximumDelayHours).mapNotNull { delayHours ->
+        val timerTime = anchor.plus(Duration.ofHours(delayHours.toLong()))
+        val start = when (mode) {
+            ApplianceTimerMode.Start -> timerTime
+            ApplianceTimerMode.Finish -> timerTime.minus(duration)
+        }
+        val end = when (mode) {
+            ApplianceTimerMode.Start -> timerTime.plus(duration)
+            ApplianceTimerMode.Finish -> timerTime
+        }
+        if (start < anchor || end > cutoff) return@mapNotNull null
+
+        weightedAveragePrice(prices, start, end)?.let { average ->
+            BestWindow(start, end, average)
+        }
+    }.minByOrNull { it.averagePricePencePerKwh }
+}
+
+fun findLoadWindowStartingNow(
+    prices: List<PriceWindow>,
+    now: Instant,
+    durationMinutes: Int,
+    searchHorizonMinutes: Int,
+): BestWindow? {
+    prices.requireSortedByValidFrom()
+    if (durationMinutes <= 0 || searchHorizonMinutes <= 0) return null
+
+    val start = now.nextMinuteBoundary()
+    val end = start.plus(Duration.ofMinutes(durationMinutes.toLong()))
+    val cutoff = start.plus(Duration.ofMinutes(searchHorizonMinutes.toLong()))
+    if (end > cutoff) return null
+
+    return weightedAveragePrice(prices, start, end)?.let { average ->
+        BestWindow(start, end, average)
+    }
+}
+
 private fun findCheapestContinuousSlotSorted(
     prices: List<PriceWindow>,
     now: Instant,
@@ -57,7 +114,7 @@ private fun findCheapestContinuousSlotSorted(
     }.minByOrNull { it.averagePricePencePerKwh }
 }
 
-private fun Instant.nextMinuteBoundary(): Instant {
+internal fun Instant.nextMinuteBoundary(): Instant {
     val truncated = truncatedTo(ChronoUnit.MINUTES)
     return if (truncated == this) truncated else truncated.plus(Duration.ofMinutes(1))
 }

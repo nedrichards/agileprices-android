@@ -103,9 +103,6 @@ fun BestWindow.endsInText(now: Instant): String {
 fun BestWindow.compactTimingText(now: Instant): String =
     "${compactStartsText(now)} / ${compactEndsText(now)}"
 
-fun BestWindow.timingGuidanceText(now: Instant): String =
-    "${startGuidanceText(now)} - ${endGuidanceText(now)}"
-
 private fun BestWindow.compactStartsText(now: Instant): String {
     val remaining = Duration.between(now, start)
     return if (remaining.isNegative || remaining.isZero) {
@@ -124,41 +121,86 @@ private fun BestWindow.compactEndsText(now: Instant): String {
     }
 }
 
-private fun BestWindow.startGuidanceText(now: Instant): String =
-    timingWithHourlyHint(
-        text = startsInText(now),
-        remaining = Duration.between(now, start),
-        round = TimerRound.Down,
-    )
+data class TimerRecommendationPresentation(
+    val label: String,
+    val timerValue: String,
+    val detail: String,
+    val detailOptions: List<String>,
+    val averagePricePencePerKwh: Double,
+)
 
-private fun BestWindow.endGuidanceText(now: Instant): String =
-    timingWithHourlyHint(
-        text = endsInText(now),
-        remaining = Duration.between(now, end),
-        round = TimerRound.Up,
+fun PriceSnapshot.timerRecommendationPresentations(now: Instant): List<TimerRecommendationPresentation> {
+    val exact = bestWindow ?: return emptyList()
+    return listOfNotNull(
+        startTimerWindow?.let {
+            TimerRecommendationPresentation(
+                label = "Start in",
+                timerValue = "${it.timerDelayHours(now, ApplianceTimerMode.Start)}h",
+                detail = it.timerDetail(exact, now),
+                detailOptions = it.timerDetailOptions(exact, now),
+                averagePricePencePerKwh = it.averagePricePencePerKwh,
+            )
+        },
+        finishTimerWindow?.let {
+            TimerRecommendationPresentation(
+                label = "Finish in",
+                timerValue = "${it.timerDelayHours(now, ApplianceTimerMode.Finish)}h",
+                detail = it.timerDetail(exact, now),
+                detailOptions = it.timerDetailOptions(exact, now),
+                averagePricePencePerKwh = it.averagePricePencePerKwh,
+            )
+        },
     )
-
-private enum class TimerRound {
-    Down,
-    Up,
 }
 
-private fun timingWithHourlyHint(
-    text: String,
-    remaining: Duration,
-    round: TimerRound,
-): String {
-    if (remaining.isNegative || remaining.isZero) return text
+data class WearTimerPresentation(
+    val startNowText: String?,
+    val recommendationRows: List<String>,
+)
 
-    val minutes = remaining.toMinutes()
-    val hours = when (round) {
-        TimerRound.Down -> minutes / 60
-        TimerRound.Up -> (minutes + 59) / 60
+fun PriceSnapshot.wearTimerPresentation(now: Instant): WearTimerPresentation =
+    WearTimerPresentation(
+        startNowText = startNowWindow?.let {
+            "Start now · ${it.averagePricePencePerKwh.formatPrice()}p avg"
+        },
+        recommendationRows = timerRecommendationPresentations(now).map {
+            "${it.label} ${it.timerValue} · ${it.averagePricePencePerKwh.formatPrice()}p avg"
+        },
+    )
+
+private fun BestWindow.timerDelayHours(now: Instant, mode: ApplianceTimerMode): Long {
+    val timerTime = when (mode) {
+        ApplianceTimerMode.Start -> start
+        ApplianceTimerMode.Finish -> end
     }
-    if (hours == 0L || minutes == hours * 60L) return text
-
-    return "$text (${hours}h)"
+    return Duration.between(now.nextMinuteBoundary(), timerTime).toHours()
 }
+
+private fun BestWindow.timerDetail(exact: BestWindow, now: Instant): String =
+    timerDetailOptions(exact, now).first()
+
+private fun BestWindow.timerDetailOptions(exact: BestWindow, now: Instant): List<String> {
+    val range = formatWindowRange(start, end, now)
+    val price = averagePricePencePerKwh.formatPrice()
+    val fullDelta = formatPriceDelta(averagePricePencePerKwh, exact.averagePricePencePerKwh)
+    val compactDelta = formatCompactPriceDelta(averagePricePencePerKwh, exact.averagePricePencePerKwh)
+    return buildList {
+        add(listOfNotNull(range, "${price}p/kWh average", fullDelta).joinToString(" · "))
+        add(listOfNotNull(range, "${price}p/kWh avg", fullDelta).joinToString(" · "))
+        add(listOfNotNull(range, "${price}p avg", compactDelta).joinToString(" · "))
+        add("$range · ${price}p/kWh avg")
+        add("$range · ${price}p")
+    }.distinct()
+}
+
+internal fun formatPriceDelta(averagePrice: Double, exactAveragePrice: Double): String? {
+    val deltaPence = (averagePrice - exactAveragePrice).coerceAtLeast(0.0)
+    if (deltaPence < 0.05) return null
+    return "+${String.format(java.util.Locale.UK, "%.1f", deltaPence)}p/kWh"
+}
+
+private fun formatCompactPriceDelta(averagePrice: Double, exactAveragePrice: Double): String? =
+    formatPriceDelta(averagePrice, exactAveragePrice)?.removeSuffix("/kWh")
 
 fun BestWindow.durationText(): String =
     "Duration ${Duration.between(start, end).toCompactDurationText()}"

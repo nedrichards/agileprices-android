@@ -2,6 +2,7 @@ package com.nedrichards.agileprices
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -40,6 +41,7 @@ class PhoneAdaptiveLayoutTest {
     @Test
     fun phoneSetupShowsRegionsAndReportsSelection() {
         var selected: ElectricityRegion? = null
+        var requestedLocation = false
 
         compose.setContent {
             AgilePricesContent(
@@ -64,22 +66,27 @@ class PhoneAdaptiveLayoutTest {
                 onSearchHorizonChanged = {},
                 onChangeRegion = {},
                 onDismissRegionPicker = {},
+                onSuggestRegion = { requestedLocation = true },
             )
         }
 
         compose.onNodeWithTag("phone_setup_list").assertIsDisplayed()
         compose.onNodeWithText("Choose region").assertIsDisplayed()
+        compose.onNodeWithText("Optional. Uses one location fix locally", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Use my location").performClick()
         compose.onNodeWithTag("phone_setup_list").performScrollToNode(hasText("London"))
         compose.onNodeWithText("London").performClick()
 
         compose.runOnIdle {
             assertEquals("_C", selected?.code)
+            assertTrue(requestedLocation)
         }
     }
 
     @Test
     fun widePhoneSetupUsesAnAdaptiveRegionGrid() {
         var selected: ElectricityRegion? = null
+        var requestedLocation = false
 
         compose.setContent {
             AgilePricesContent(
@@ -103,16 +110,19 @@ class PhoneAdaptiveLayoutTest {
                 onSearchHorizonChanged = {},
                 onChangeRegion = {},
                 onDismissRegionPicker = {},
+                onSuggestRegion = { requestedLocation = true },
             )
         }
 
         compose.onNodeWithTag("phone_setup_grid").assertIsDisplayed()
         compose.onAllNodesWithTag("phone_setup_list").assertCountEquals(0)
+        compose.onNodeWithText("Use my location").performClick()
         compose.onNodeWithTag("phone_setup_grid").performScrollToNode(hasText("London"))
         compose.onNodeWithText("London").performClick()
 
         compose.runOnIdle {
             assertEquals("_C", selected?.code)
+            assertTrue(requestedLocation)
         }
     }
 
@@ -148,7 +158,7 @@ class PhoneAdaptiveLayoutTest {
         compose.onAllNodesWithText("Current period 12:00-12:30").assertCountEquals(0)
         compose.onAllNodesWithText("Cheapest 1h window")[0].assertIsDisplayed()
         compose.onNodeWithText("13:15-14:15").assertIsDisplayed()
-        compose.onNodeWithText("Starts in 1h 15m (1h) - Ends in 2h 15m (3h)").assertIsDisplayed()
+        compose.onNodeWithText("Appliance timers").assertIsDisplayed()
         compose.onAllNodesWithText("Duration 1h").assertCountEquals(0)
         compose.onAllNodesWithText("Current price period").assertCountEquals(0)
         compose.onAllNodesWithTag("phone_time_relationship").assertCountEquals(0)
@@ -178,6 +188,49 @@ class PhoneAdaptiveLayoutTest {
         compose.runOnIdle {
             assertTrue(refreshed)
             assertTrue(changingRegion)
+        }
+    }
+
+    @Test
+    fun pixelWidthTomorrowTimerDetailUsesSingleLineCompaction() {
+        val tomorrowStart = Instant.parse("2026-01-06T01:15:00Z")
+        val snapshot = loadedSnapshot(settings()).copy(
+            startTimerWindow = BestWindow(
+                start = tomorrowStart,
+                end = tomorrowStart.plusSeconds(60 * 60),
+                averagePricePencePerKwh = 4.2,
+            ),
+            finishTimerWindow = null,
+        )
+
+        compose.setContent {
+            Box(Modifier.requiredWidth(393.dp)) {
+                AgilePricesContent(
+                    surface = AgileSurface.Phone,
+                    adaptiveWidthClass = AdaptiveWidthClass.Compact,
+                    snapshot = snapshot,
+                    settings = settings(),
+                    now = now,
+                    busy = false,
+                    message = null,
+                    choosingRegion = false,
+                    onSelectRegion = {},
+                    onRefresh = {},
+                    onLoadDurationChanged = {},
+                    onSearchHorizonChanged = {},
+                    onChangeRegion = {},
+                    onDismissRegionPicker = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Tomorrow 01:15-02:15", substring = true)
+            .assertIsDisplayed()
+        val detailNode = compose.onNodeWithTag("phone_timer_detail_start_in")
+            .assertIsDisplayed()
+            .fetchSemanticsNode()
+        compose.runOnIdle {
+            assertTrue(detailNode.boundsInRoot.height <= 24f * compose.density.density)
         }
     }
 
@@ -441,6 +494,16 @@ class PhoneAdaptiveLayoutTest {
                 start = Instant.parse("2026-01-05T13:15:00Z"),
                 end = Instant.parse("2026-01-05T14:15:00Z"),
                 averagePricePencePerKwh = 3.5,
+            ),
+            startTimerWindow = BestWindow(
+                start = now.plusSeconds(60 * 60),
+                end = now.plusSeconds(2 * 60 * 60),
+                averagePricePencePerKwh = 4.0,
+            ),
+            finishTimerWindow = BestWindow(
+                start = now.plusSeconds(60 * 60),
+                end = now.plusSeconds(2 * 60 * 60),
+                averagePricePencePerKwh = 4.1,
             ),
             fetchedAt = settings.fetchedAt,
             validUntil = Instant.parse("2026-01-06T00:00:00Z"),

@@ -246,9 +246,15 @@ class AgileRepositoryTest {
 
         val snapshot = repository.snapshots.first()
         val bestWindow = requireNotNull(snapshot.bestWindow)
+        val startNowWindow = requireNotNull(snapshot.startNowWindow)
+        val startTimerWindow = requireNotNull(snapshot.startTimerWindow)
+        val finishTimerWindow = requireNotNull(snapshot.finishTimerWindow)
 
         assertEquals(fixedNow.plusSeconds(90 * 60), bestWindow.start)
         assertEquals(1.0, bestWindow.averagePricePencePerKwh, 0.0001)
+        assertEquals(fixedNow.plusSeconds(17 * 60), startNowWindow.start)
+        assertEquals(fixedNow.plusSeconds(77 * 60), startTimerWindow.start)
+        assertEquals(fixedNow.plusSeconds(137 * 60), finishTimerWindow.end)
     }
 
     @Test
