@@ -328,6 +328,8 @@ private data class AutoRefreshKey(
     val tariffCode: String?,
     val validUntil: Instant?,
     val hasCachedPrices: Boolean,
+    val loadDurationMinutes: Int,
+    val searchHorizonMinutes: Int,
 )
 
 private fun AgileSettings.autoRefreshKey(): AutoRefreshKey =
@@ -335,6 +337,8 @@ private fun AgileSettings.autoRefreshKey(): AutoRefreshKey =
         tariffCode = selectedTariffCode,
         validUntil = cachedPrices.maxOfOrNull { it.validTo },
         hasCachedPrices = cachedPrices.isNotEmpty(),
+        loadDurationMinutes = loadDurationMinutes,
+        searchHorizonMinutes = searchHorizonMinutes,
     )
 
 internal fun shouldRefreshOnStart(
@@ -343,9 +347,8 @@ internal fun shouldRefreshOnStart(
     now: Instant,
 ): Boolean {
     if (settings.selectedTariffCode.isNullOrBlank()) return false
-    if (settings.cachedPrices.isEmpty()) return true
     if (snapshot.status == SnapshotStatus.Stale) return true
-    return settings.cachedPrices.maxOfOrNull { it.validTo }?.let { it <= now } == true
+    return settings.requiresMorePriceData(now)
 }
 
 @Composable

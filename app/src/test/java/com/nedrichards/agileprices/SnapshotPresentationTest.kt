@@ -246,7 +246,7 @@ class SnapshotPresentationTest {
     }
 
     @Test
-    fun launchRefreshWaitsWhenSetupIsMissingOrCacheIsCurrent() {
+    fun launchRefreshWaitsWhenSetupIsMissingOrCacheCanPlanTheRequestedRun() {
         val now = Instant.parse("2026-03-21T12:00:00Z")
         val currentPrice = PriceWindow(
             validFrom = Instant.parse("2026-03-21T12:00:00Z"),
@@ -267,14 +267,47 @@ class SnapshotPresentationTest {
                 now = now,
             ),
         )
+        val nextPrice = PriceWindow(
+            validFrom = currentPrice.validTo,
+            validTo = currentPrice.validTo.plusSeconds(30 * 60),
+            pricePencePerKwh = 8.3,
+        )
         assertFalse(
+            shouldRefreshOnStart(
+                settings = settings(cachedPrices = listOf(currentPrice, nextPrice)),
+                snapshot = PriceSnapshot(
+                    currentPrice = currentPrice,
+                    bestWindow = BestWindow(
+                        start = currentPrice.validFrom,
+                        end = nextPrice.validTo,
+                        averagePricePencePerKwh = 8.25,
+                    ),
+                    fetchedAt = Instant.parse("2026-03-21T11:58:00Z"),
+                    validUntil = Instant.parse("2026-03-21T12:30:00Z"),
+                    status = SnapshotStatus.Loaded,
+                ),
+                now = now,
+            ),
+        )
+    }
+
+    @Test
+    fun launchRefreshRunsWhenCacheCannotCoverRequestedDuration() {
+        val now = Instant.parse("2026-03-21T12:00:00Z")
+        val currentPrice = PriceWindow(
+            validFrom = now,
+            validTo = now.plusSeconds(30 * 60),
+            pricePencePerKwh = 8.2,
+        )
+
+        assertTrue(
             shouldRefreshOnStart(
                 settings = settings(cachedPrices = listOf(currentPrice)),
                 snapshot = PriceSnapshot(
                     currentPrice = currentPrice,
                     bestWindow = null,
-                    fetchedAt = Instant.parse("2026-03-21T11:58:00Z"),
-                    validUntil = Instant.parse("2026-03-21T12:30:00Z"),
+                    fetchedAt = now,
+                    validUntil = currentPrice.validTo,
                     status = SnapshotStatus.Loaded,
                 ),
                 now = now,

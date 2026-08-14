@@ -20,7 +20,7 @@ The app is independent and is not affiliated with, endorsed by or sponsored by O
 - Wear SHORT_TEXT complication showing current price.
 - Android home-screen widget showing cached current price and cheapest window.
 - Optional phone notification while the current price is at or below zero, with the time until it becomes positive.
-- Periodic background refresh with a network-connected WorkManager constraint and no retry wakeups between the normal 30-minute cadence.
+- Periodic background refresh with a network-connected WorkManager constraint, plus bounded exponential retries for temporary network/server failures or an incomplete price cache.
 
 The location suggestion uses GB electricity-region boundaries obtained from
 [Northern Powergrid Open Data](https://northernpowergrid.opendatasoft.com/api/explore/v2.1/catalog/datasets/all_dno_boundaries/exports/geojson), under the [Northern Powergrid Open Data Licence v1.0](https://northernpowergrid.opendatasoft.com/p/opendatalicence/). Supported by Northern Powergrid Open Data. The suggestion is only a convenience: the electricity account remains authoritative, especially near boundaries.
