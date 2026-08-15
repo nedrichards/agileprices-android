@@ -1,5 +1,6 @@
 package com.nedrichards.agileprices
 
+import android.graphics.Paint as AndroidPaint
 import android.os.Build
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.focusable
@@ -49,7 +50,10 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -65,6 +69,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.time.Duration
 import java.time.Instant
+import java.time.ZoneId
+import java.time.format.TextStyle
+import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
@@ -581,6 +588,7 @@ private fun PhoneInteractivePriceGraph(
     val minPrice = visiblePrices.minOf { it.pricePencePerKwh }
     val maxPrice = visiblePrices.maxOf { it.pricePencePerKwh }
     val priceRange = (maxPrice - minPrice).takeIf { it > 0.0 } ?: 1.0
+    val dayTransition = firstPriceGraphDayTransition(visiblePrices, now)
     val graphInsights = priceGraphInsights(
         prices = visiblePrices,
         cheapestPrice = cheapestPrice,
@@ -664,7 +672,7 @@ private fun PhoneInteractivePriceGraph(
                     .pointerInput(visiblePrices) {
                         fun updateSelection(x: Float) {
                             selectedStart = visiblePrices[
-                                x.nearestPriceIndex(width = size.width, lastIndex = visiblePrices.lastIndex)
+                                x.nearestPriceIndex(width = size.width, slotCount = visiblePrices.size)
                             ].validFrom
                         }
                         detectTapGestures { offset -> updateSelection(offset.x) }
@@ -672,7 +680,7 @@ private fun PhoneInteractivePriceGraph(
                     .pointerInput(visiblePrices) {
                         fun updateSelection(x: Float) {
                             selectedStart = visiblePrices[
-                                x.nearestPriceIndex(width = size.width, lastIndex = visiblePrices.lastIndex)
+                                x.nearestPriceIndex(width = size.width, slotCount = visiblePrices.size)
                             ].validFrom
                         }
                         detectHorizontalDragGestures(
@@ -681,18 +689,21 @@ private fun PhoneInteractivePriceGraph(
                         )
                     }
                     .semantics {
-                        contentDescription = "$label price graph. Selected ${formatWindowRange(selectedPrice.validFrom, selectedPrice.validTo, now)} at ${selectedPrice.pricePencePerKwh.formatPrice()} pence per kilowatt hour"
+                        contentDescription = buildString {
+                            append("$label price graph")
+                            if (minPrice < 0.0 && maxPrice > 0.0) append(" with zero-price baseline")
+                            dayTransition?.let { append(" and ${it.label} boundary") }
+                            append(". Selected ${formatWindowRange(selectedPrice.validFrom, selectedPrice.validTo, now)} at ${selectedPrice.pricePencePerKwh.formatPrice()} pence per kilowatt hour")
+                        }
                     },
             ) {
                 val top = 8f
                 val bottom = size.height - 8f
                 val plotHeight = bottom - top
-                fun xFor(index: Int): Float =
-                    if (visiblePrices.size == 1) {
-                        size.width / 2f
-                    } else {
-                        size.width * index / visiblePrices.lastIndex.toFloat()
-                    }
+                val slotWidth = size.width / visiblePrices.size.toFloat()
+                fun xFor(index: Int): Float = slotWidth * (index + 0.5f)
+                fun slotStartX(index: Int): Float = slotWidth * index
+                fun slotEndX(index: Int): Float = slotWidth * (index + 1)
                 fun yFor(price: Double): Float =
                     top + ((maxPrice - price) / priceRange).toFloat() * plotHeight
 
@@ -703,8 +714,8 @@ private fun PhoneInteractivePriceGraph(
                     visiblePrices.indexOfLast { it.validTo > window.start && it.validFrom < window.end }
                 } ?: -1
                 if (bestStartIndex >= 0 && bestEndIndex >= bestStartIndex) {
-                    val left = xFor(bestStartIndex).coerceAtLeast(0f)
-                    val right = xFor(bestEndIndex).coerceAtLeast(left + 1f)
+                    val left = slotStartX(bestStartIndex)
+                    val right = slotEndX(bestEndIndex)
                     drawRoundRect(
                         color = highlightColor,
                         topLeft = Offset(left, 0f),
@@ -720,6 +731,38 @@ private fun PhoneInteractivePriceGraph(
                         start = Offset(0f, zeroY),
                         end = Offset(size.width, zeroY),
                         strokeWidth = 1f,
+                    )
+                    val zeroLabelPaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+                        color = baselineColor.toArgb()
+                        textSize = 11f * density
+                        textAlign = AndroidPaint.Align.RIGHT
+                    }
+                    drawContext.canvas.nativeCanvas.drawText(
+                        "0p",
+                        size.width - 4f,
+                        (zeroY - 4f).coerceAtLeast(top + 11f * density),
+                        zeroLabelPaint,
+                    )
+                }
+
+                dayTransition?.let { transition ->
+                    val boundaryX = slotStartX(transition.index)
+                    drawLine(
+                        color = baselineColor.copy(alpha = 0.8f),
+                        start = Offset(boundaryX, 0f),
+                        end = Offset(boundaryX, size.height),
+                        strokeWidth = 1f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 6f)),
+                    )
+                    val dayLabelPaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+                        color = baselineColor.toArgb()
+                        textSize = 11f * density
+                    }
+                    drawContext.canvas.nativeCanvas.drawText(
+                        transition.label,
+                        (boundaryX + 5f).coerceAtMost(size.width - dayLabelPaint.measureText(transition.label) - 4f),
+                        top + 11f * density,
+                        dayLabelPaint,
                     )
                 }
 
@@ -789,12 +832,41 @@ private fun PhoneInteractivePriceGraph(
 
 private fun Float.nearestPriceIndex(
     width: Int,
-    lastIndex: Int,
+    slotCount: Int,
 ): Int {
-    if (lastIndex <= 0 || width <= 0) return 0
-    return ((coerceIn(0f, width.toFloat()) / width.toFloat()) * lastIndex)
-        .roundToInt()
-        .coerceIn(0, lastIndex)
+    if (slotCount <= 1 || width <= 0) return 0
+    return ((coerceIn(0f, width.toFloat()) / width.toFloat()) * slotCount)
+        .toInt()
+        .coerceIn(0, slotCount - 1)
+}
+
+internal data class PriceGraphDayTransition(
+    val index: Int,
+    val label: String,
+)
+
+internal fun firstPriceGraphDayTransition(
+    prices: List<PriceWindow>,
+    now: Instant,
+    zoneId: ZoneId = ZoneId.systemDefault(),
+): PriceGraphDayTransition? {
+    if (prices.size < 2) return null
+
+    var previousDate = prices.first().validFrom.atZone(zoneId).toLocalDate()
+    val tomorrow = now.atZone(zoneId).toLocalDate().plusDays(1)
+    prices.drop(1).forEachIndexed { offset, price ->
+        val currentDate = price.validFrom.atZone(zoneId).toLocalDate()
+        if (currentDate != previousDate) {
+            val label = if (currentDate == tomorrow) {
+                "Tomorrow"
+            } else {
+                currentDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
+            }
+            return PriceGraphDayTransition(index = offset + 1, label = label)
+        }
+        previousDate = currentDate
+    }
+    return null
 }
 
 private fun PriceWindow.bestWindowStatus(bestWindow: BestWindow?): String? {

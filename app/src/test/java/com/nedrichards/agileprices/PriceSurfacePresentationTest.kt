@@ -1,11 +1,26 @@
 package com.nedrichards.agileprices
 
 import java.time.Instant
+import java.time.ZoneId
 import java.util.TimeZone
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class PriceSurfacePresentationTest {
+    @Test
+    fun priceGraphMarksTheTomorrowBoundaryAtTheFirstNewDaySlot() {
+        val now = Instant.parse("2026-01-05T23:30:00Z")
+        val prices = listOf(
+            PriceWindow(now, now.plusSeconds(30 * 60), 8.2),
+            PriceWindow(now.plusSeconds(30 * 60), now.plusSeconds(60 * 60), 6.4),
+        )
+
+        assertEquals(
+            PriceGraphDayTransition(index = 1, label = "Tomorrow"),
+            firstPriceGraphDayTransition(prices, now, ZoneId.of("UTC")),
+        )
+    }
+
     @Test
     fun tileAndComplicationShowLoadedState() = withUtcTimeZone {
         val snapshot = loadedSnapshot(price = 8.2)
