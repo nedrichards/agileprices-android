@@ -7,7 +7,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -58,14 +57,11 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import java.time.Duration
 import java.time.Instant
@@ -504,11 +500,6 @@ private fun PhoneBestWindowPanel(
                 )
             } else {
                 Text(
-                    text = "Cheapest",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
                     text = formatWindowRange(bestWindow.start, bestWindow.end, now),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.SemiBold,
@@ -519,25 +510,29 @@ private fun PhoneBestWindowPanel(
                 )
                 val timerRecommendations = snapshot.timerRecommendationPresentations(now)
                 if (timerRecommendations.isNotEmpty()) {
-                    Text(
-                        text = "Appliance timers",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
                     timerRecommendations.forEach { recommendation ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(recommendation.label, style = MaterialTheme.typography.bodyLarge)
+                        Column(modifier = Modifier.fillMaxWidth()) {
                             Text(
-                                recommendation.timerValue,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
+                                text = recommendation.label,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                Text(
+                                    text = recommendation.timerValue,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.width(72.dp),
+                                )
+                                TimerDetail(
+                                    recommendation = recommendation,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
-                        MeasuredTimerDetail(recommendation)
                     }
                 }
             }
@@ -546,32 +541,18 @@ private fun PhoneBestWindowPanel(
 }
 
 @Composable
-private fun MeasuredTimerDetail(recommendation: TimerRecommendationPresentation) {
-    val style = MaterialTheme.typography.bodyMedium
-    val textMeasurer = rememberTextMeasurer()
-    val density = LocalDensity.current
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val maximumWidthPx = with(density) { maxWidth.roundToPx() }
-        val displayedText = recommendation.detailOptions.firstOrNull { option ->
-            textMeasurer.measure(
-                text = option,
-                style = style,
-                softWrap = false,
-                maxLines = 1,
-            ).size.width <= maximumWidthPx
-        } ?: recommendation.detailOptions.last()
-        Text(
-            text = displayedText,
-            style = style,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.semantics {
-                contentDescription = recommendation.detail
-            }.testTag("phone_timer_detail_${recommendation.label.lowercase().replace(' ', '_')}"),
-        )
-    }
+private fun TimerDetail(
+    recommendation: TimerRecommendationPresentation,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = recommendation.detail,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.semantics {
+            contentDescription = recommendation.detail
+        }.testTag("phone_timer_detail_${recommendation.label.lowercase().replace(' ', '_')}"),
+    )
 }
 
 @Composable

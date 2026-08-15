@@ -116,7 +116,7 @@ After installing on a phone or resizable Android/ChromeOS window:
 6. Confirm stale/error messaging and manual refresh remain usable at compact and wider window sizes.
 7. Add the Android home-screen widget and confirm it shows cached current-price and cheapest-window data, then opens the app when tapped.
 8. Enable at-or-below-zero alerts, then confirm a negative price posts an ongoing notification, a zero price keeps it, and a £0.01-or-higher price removes it.
-9. Confirm the cheapest panel shows the exact range and price plus separate priced **Start in** and **Finish in** timer recommendations without wrapping awkwardly.
+9. Confirm the cheapest panel shows the exact range and price plus separate priced **Start in** and **Finish in** timer recommendations in a compact two-column layout.
 
 After installing on a Wear OS emulator or device:
 

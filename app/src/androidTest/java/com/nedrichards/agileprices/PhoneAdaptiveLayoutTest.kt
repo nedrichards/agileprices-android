@@ -158,7 +158,7 @@ class PhoneAdaptiveLayoutTest {
         compose.onAllNodesWithText("Current period 12:00-12:30").assertCountEquals(0)
         compose.onAllNodesWithText("Cheapest 1h window")[0].assertIsDisplayed()
         compose.onNodeWithText("13:15-14:15").assertIsDisplayed()
-        compose.onNodeWithText("Appliance timers").assertIsDisplayed()
+        compose.onNodeWithText("Start in").assertIsDisplayed()
         compose.onAllNodesWithText("Duration 1h").assertCountEquals(0)
         compose.onAllNodesWithText("Current price period").assertCountEquals(0)
         compose.onAllNodesWithTag("phone_time_relationship").assertCountEquals(0)
@@ -192,7 +192,7 @@ class PhoneAdaptiveLayoutTest {
     }
 
     @Test
-    fun pixelWidthTomorrowTimerDetailUsesSingleLineCompaction() {
+    fun pixelWidthTomorrowTimerDetailCanWrapBesideTheTimerValue() {
         val tomorrowStart = Instant.parse("2026-01-06T01:15:00Z")
         val snapshot = loadedSnapshot(settings()).copy(
             startTimerWindow = BestWindow(
@@ -230,7 +230,7 @@ class PhoneAdaptiveLayoutTest {
             .assertIsDisplayed()
             .fetchSemanticsNode()
         compose.runOnIdle {
-            assertTrue(detailNode.boundsInRoot.height <= 24f * compose.density.density)
+            assertTrue(detailNode.boundsInRoot.height > 24f * compose.density.density)
         }
     }
 
