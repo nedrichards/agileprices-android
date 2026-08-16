@@ -124,7 +124,7 @@ private fun BestWindow.compactEndsText(now: Instant): String {
 data class TimerRecommendationPresentation(
     val label: String,
     val timerValue: String,
-    val detail: String,
+    val detail: String?,
     val detailOptions: List<String>,
     val averagePricePencePerKwh: Double,
 )
@@ -133,11 +133,12 @@ fun PriceSnapshot.timerRecommendationPresentations(now: Instant): List<TimerReco
     val exact = bestWindow ?: return emptyList()
     return listOfNotNull(
         startTimerWindow?.let {
+            val currentCheapestRun = it.isCurrentCheapestRun(exact, now)
             TimerRecommendationPresentation(
                 label = "Start in",
-                timerValue = "${it.timerDelayHours(now, ApplianceTimerMode.Start)}h",
-                detail = it.timerDetail(exact, now),
-                detailOptions = it.timerDetailOptions(exact, now),
+                timerValue = if (currentCheapestRun) "Now" else "${it.timerDelayHours(now, ApplianceTimerMode.Start)}h",
+                detail = if (currentCheapestRun && !it.hasUnexpectedPriceDifference(exact)) null else it.timerDetail(exact, now),
+                detailOptions = if (currentCheapestRun && !it.hasUnexpectedPriceDifference(exact)) emptyList() else it.timerDetailOptions(exact, now),
                 averagePricePencePerKwh = it.averagePricePencePerKwh,
             )
         },
@@ -152,6 +153,14 @@ fun PriceSnapshot.timerRecommendationPresentations(now: Instant): List<TimerReco
         },
     )
 }
+
+private fun BestWindow.isCurrentCheapestRun(exact: BestWindow, now: Instant): Boolean {
+    val nextMinute = now.nextMinuteBoundary()
+    return start <= nextMinute && exact.start <= nextMinute
+}
+
+private fun BestWindow.hasUnexpectedPriceDifference(exact: BestWindow): Boolean =
+    kotlin.math.abs(averagePricePencePerKwh - exact.averagePricePencePerKwh) >= 0.5
 
 data class WearTimerPresentation(
     val startNowText: String?,

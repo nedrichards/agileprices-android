@@ -559,10 +559,13 @@ private fun PhoneBestWindowPanel(
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.width(72.dp),
                                 )
-                                TimerDetail(
-                                    recommendation = recommendation,
-                                    modifier = Modifier.weight(1f),
-                                )
+                                recommendation.detail?.let { detail ->
+                                    TimerDetail(
+                                        detail = detail,
+                                        label = recommendation.label,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
                             }
                         }
                     }
@@ -574,16 +577,17 @@ private fun PhoneBestWindowPanel(
 
 @Composable
 private fun TimerDetail(
-    recommendation: TimerRecommendationPresentation,
+    detail: String,
+    label: String,
     modifier: Modifier = Modifier,
 ) {
     Text(
-        text = recommendation.detail,
+        text = detail,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier.semantics {
-            contentDescription = recommendation.detail
-        }.testTag("phone_timer_detail_${recommendation.label.lowercase().replace(' ', '_')}"),
+            contentDescription = detail
+        }.testTag("phone_timer_detail_${label.lowercase().replace(' ', '_')}"),
     )
 }
 

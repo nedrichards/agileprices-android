@@ -391,8 +391,39 @@ class SnapshotPresentationTest {
 
         val recommendations = snapshot.timerRecommendationPresentations(Instant.parse("2026-03-21T12:17:42Z"))
 
-        assertFalse(recommendations[0].detail.contains("+"))
-        assertTrue(recommendations[1].detail.endsWith("+0.6p/kWh"))
+        assertFalse(requireNotNull(recommendations[0].detail).contains("+"))
+        assertTrue(requireNotNull(recommendations[1].detail).endsWith("+0.6p/kWh"))
+    }
+
+    @Test
+    fun currentCheapestTimerSaysNowWithoutRepeatingTheCheapestWindow() {
+        val now = Instant.parse("2026-03-21T12:17:42Z")
+        val start = Instant.parse("2026-03-21T12:18:00Z")
+        val exact = BestWindow(start, start.plusSeconds(60 * 60), 3.0)
+        val sameRun = PriceSnapshot(
+            currentPrice = null,
+            bestWindow = exact,
+            fetchedAt = null,
+            validUntil = null,
+            status = SnapshotStatus.Loaded,
+            startTimerWindow = BestWindow(start, start.plusSeconds(60 * 60), 3.2),
+        ).timerRecommendationPresentations(now).single()
+
+        assertEquals("Now", sameRun.timerValue)
+        assertNull(sameRun.detail)
+        assertTrue(sameRun.detailOptions.isEmpty())
+
+        val differentAverage = PriceSnapshot(
+            currentPrice = null,
+            bestWindow = exact,
+            fetchedAt = null,
+            validUntil = null,
+            status = SnapshotStatus.Loaded,
+            startTimerWindow = BestWindow(start, start.plusSeconds(60 * 60), 3.6),
+        ).timerRecommendationPresentations(now).single()
+
+        assertEquals("Now", differentAverage.timerValue)
+        assertTrue(requireNotNull(differentAverage.detail).contains("+0.6p/kWh"))
     }
 
     @Test
@@ -428,7 +459,7 @@ class SnapshotPresentationTest {
 
             val recommendation = snapshot.timerRecommendationPresentations(now).single()
 
-            assertTrue(recommendation.detail.startsWith("Tomorrow 01:01 GMT-01:31 GMT"))
+            assertTrue(requireNotNull(recommendation.detail).startsWith("Tomorrow 01:01 GMT-01:31 GMT"))
             assertTrue(recommendation.detailOptions.all { it.startsWith("Tomorrow 01:01 GMT-01:31 GMT") })
             assertEquals("Start in 4h · 1.1p avg", snapshot.wearTimerPresentation(now).recommendationRows.single())
         } finally {
