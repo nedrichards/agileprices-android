@@ -258,7 +258,7 @@ class AgileRepositoryTest {
     }
 
     @Test
-    fun snapshotKeepsShortRowsButGraphsTwentyFourHoursIncludingCurrentSlot() = runTest {
+    fun snapshotKeepsShortRowsButGraphsAllAvailableFetchedPrices() = runTest {
         val now = fixedNow.plusSeconds(15 * 60)
         val prices = List(60) { index ->
             val validFrom = fixedNow.minusSeconds(30 * 60).plusSeconds(index * 30L * 60L)
@@ -289,9 +289,9 @@ class AgileRepositoryTest {
 
         assertEquals(8, snapshot.upcoming.size)
         assertEquals(fixedNow.plusSeconds(30 * 60), snapshot.upcoming.first().validFrom)
-        assertEquals(49, snapshot.sparklinePrices.size)
+        assertEquals(59, snapshot.sparklinePrices.size)
         assertEquals(fixedNow, snapshot.sparklinePrices.first().validFrom)
-        assertEquals(fixedNow.plusSeconds(24 * 60 * 60), snapshot.sparklinePrices.last().validFrom)
+        assertEquals(fixedNow.plusSeconds(29 * 60 * 60), snapshot.sparklinePrices.last().validFrom)
     }
 
     @Test

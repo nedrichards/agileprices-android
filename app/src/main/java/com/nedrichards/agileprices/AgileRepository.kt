@@ -179,7 +179,7 @@ class AgileRepository(
             else -> SnapshotStatus.Loaded
         }
 
-        val graphHorizon = now.plus(Duration.ofHours(24))
+        val graphHorizon = now.plus(Duration.ofHours(defaultFetchHorizonHours))
         return PriceSnapshot(
             currentPrice = current,
             bestWindow = best,

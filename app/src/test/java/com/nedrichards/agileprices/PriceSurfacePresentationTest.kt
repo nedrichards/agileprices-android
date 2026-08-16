@@ -8,6 +8,17 @@ import org.junit.Test
 
 class PriceSurfacePresentationTest {
     @Test
+    fun priceGraphLabelPreservesAnExtendedAvailableHorizon() {
+        val now = Instant.parse("2026-01-05T12:00:00Z")
+        val prices = List(60) { index ->
+            val start = now.plusSeconds(index * 30L * 60L)
+            PriceWindow(start, start.plusSeconds(30 * 60), index.toDouble())
+        }
+
+        assertEquals("Next 30h", sparklineLabel(prices, now))
+    }
+
+    @Test
     fun priceGraphMarksTheTomorrowBoundaryAtTheFirstNewDaySlot() {
         val now = Instant.parse("2026-01-05T23:30:00Z")
         val prices = listOf(

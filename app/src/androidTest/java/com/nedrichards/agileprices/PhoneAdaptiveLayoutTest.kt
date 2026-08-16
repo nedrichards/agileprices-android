@@ -201,7 +201,7 @@ class PhoneAdaptiveLayoutTest {
 
         compose.onNodeWithTag("phone_compact_price_list").assertIsDisplayed()
         compose.onNodeWithTag("phone_current_price").assertIsDisplayed()
-        compose.onNodeWithText("8.2p/kWh").assertIsDisplayed()
+        compose.onAllNodesWithText("8.2p/kWh")[0].assertIsDisplayed()
         compose.onAllNodesWithText("p/kWh now").assertCountEquals(0)
         compose.onAllNodesWithText("Current period 12:00-12:30").assertCountEquals(0)
         compose.onAllNodesWithText("Cheapest 1h window")[0].assertIsDisplayed()
@@ -224,7 +224,11 @@ class PhoneAdaptiveLayoutTest {
         compose.onNodeWithText("Upcoming prices").assertIsDisplayed()
         compose.onNodeWithText("12:00-12:30").assertIsDisplayed()
         compose.onNodeWithText("8.2p/kWh").assertIsDisplayed()
+        compose.onNodeWithTag("phone_compact_price_list")
+            .performScrollToNode(hasTestTag("phone_cheapest_price"))
         compose.onNodeWithTag("phone_cheapest_price").assertIsDisplayed()
+        compose.onNodeWithTag("phone_compact_price_list")
+            .performScrollToNode(hasText("Price swing 13.0p/kWh across the visible range"))
         compose.onNodeWithText("Price swing 13.0p/kWh across the visible range").assertIsDisplayed()
         compose.onNodeWithTag("phone_price_sparkline").assertIsDisplayed()
         compose.onAllNodesWithText("Next slots").assertCountEquals(0)
@@ -349,7 +353,7 @@ class PhoneAdaptiveLayoutTest {
     }
 
     @Test
-    fun mediumAndExpandedPhoneWidthsUseSupportingPane() {
+    fun mediumAndExpandedPhoneWidthsUsePlanningAndGraphPanes() {
         var widthClass by mutableStateOf(AdaptiveWidthClass.Medium)
 
         compose.setContent {
@@ -372,13 +376,46 @@ class PhoneAdaptiveLayoutTest {
         }
 
         compose.onNodeWithTag("phone_two_pane").assertIsDisplayed()
-        compose.onNodeWithTag("phone_supporting_pane").assertIsDisplayed()
+        compose.onNodeWithTag("phone_planning_pane").assertIsDisplayed()
+        compose.onNodeWithTag("phone_graph_pane").assertIsDisplayed()
 
         compose.runOnIdle {
             widthClass = AdaptiveWidthClass.Expanded
         }
         compose.onNodeWithTag("phone_two_pane").assertIsDisplayed()
-        compose.onNodeWithTag("phone_supporting_pane").assertIsDisplayed()
+        compose.onNodeWithTag("phone_planning_pane").assertIsDisplayed()
+        compose.onNodeWithTag("phone_graph_pane").assertIsDisplayed()
+    }
+
+    @Test
+    fun expandedPhoneLayoutBoundsTheDesktopWorkspace() {
+        compose.setContent {
+            Box(Modifier.requiredWidth(1440.dp)) {
+                AgilePricesContent(
+                    surface = AgileSurface.Phone,
+                    adaptiveWidthClass = AdaptiveWidthClass.Expanded,
+                    snapshot = loadedSnapshot(settings()),
+                    settings = settings(),
+                    now = now,
+                    busy = false,
+                    message = null,
+                    choosingRegion = false,
+                    onSelectRegion = {},
+                    onRefresh = {},
+                    onLoadDurationChanged = {},
+                    onSearchHorizonChanged = {},
+                    onChangeRegion = {},
+                    onDismissRegionPicker = {},
+                )
+            }
+        }
+
+        val workspace = compose.onNodeWithTag("phone_two_pane")
+            .assertIsDisplayed()
+            .fetchSemanticsNode()
+        compose.runOnIdle {
+            assertTrue(workspace.boundsInRoot.width <= 1280f * compose.density.density)
+        }
     }
 
     @Test

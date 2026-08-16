@@ -3,11 +3,13 @@ package com.nedrichards.agileprices
 import android.graphics.Paint as AndroidPaint
 import android.os.Build
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -60,12 +62,15 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import java.time.Duration
 import java.time.Instant
@@ -387,64 +392,78 @@ private fun WidePhonePriceScreen(
     onEnableNegativePriceAlerts: () -> Unit,
     modifier: Modifier,
 ) {
-    val paneMaxWidth = if (widthClass == AdaptiveWidthClass.Expanded) 420.dp else 360.dp
+    val graphPaneWeight = if (widthClass == AdaptiveWidthClass.Expanded) 1.65f else 1.3f
+    val graphHeight = if (widthClass == AdaptiveWidthClass.Expanded) 240.dp else 200.dp
 
-    Row(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(20.dp)
-            .testTag("phone_two_pane"),
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
+            .testTag("phone_desktop_workspace"),
+        contentAlignment = Alignment.TopCenter,
     ) {
-        LazyColumn(
+        Row(
             modifier = Modifier
-                .weight(1.7f)
-                .fillMaxHeight(),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+                .widthIn(max = 1280.dp)
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .padding(20.dp)
+                .testTag("phone_two_pane"),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            item { PhonePriceHero(snapshot = snapshot) }
-            item {
-                PhoneBestWindowPanel(
-                    snapshot = snapshot,
-                    loadDurationMinutes = settings.loadDurationMinutes,
-                    now = now,
-                )
-            }
-            item {
-                PhoneControlsPanel(
-                    settings = settings,
-                    onLoadDurationChanged = onLoadDurationChanged,
-                    onSearchHorizonChanged = onSearchHorizonChanged,
-                )
-            }
-            if (snapshot.sparklinePrices.isNotEmpty()) {
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .focusGroup()
+                    .testTag("phone_planning_pane"),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                item { PhonePriceHero(snapshot = snapshot) }
                 item {
-                    PhoneInteractivePriceGraph(
-                        prices = snapshot.sparklinePrices,
-                        bestWindow = snapshot.bestWindow,
+                    PhoneBestWindowPanel(
+                        snapshot = snapshot,
+                        loadDurationMinutes = settings.loadDurationMinutes,
                         now = now,
                     )
                 }
+                item {
+                    PhoneStatusAndSetupPanel(
+                        snapshot = snapshot,
+                        settings = settings,
+                        busy = busy,
+                        message = message,
+                        onRefresh = onRefresh,
+                        onChangeRegion = onChangeRegion,
+                        onEnableNegativePriceAlerts = onEnableNegativePriceAlerts,
+                    )
+                }
             }
-        }
-        LazyColumn(
-            modifier = Modifier
-                .widthIn(max = paneMaxWidth)
-                .weight(1f)
-                .fillMaxHeight()
-                .testTag("phone_supporting_pane"),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            item {
-                PhoneStatusAndSetupPanel(
-                    snapshot = snapshot,
-                    settings = settings,
-                    busy = busy,
-                    message = message,
-                    onRefresh = onRefresh,
-                    onChangeRegion = onChangeRegion,
-                    onEnableNegativePriceAlerts = onEnableNegativePriceAlerts,
-                )
+            LazyColumn(
+                modifier = Modifier
+                    .weight(graphPaneWeight)
+                    .fillMaxHeight()
+                    .focusGroup()
+                    .testTag("phone_graph_pane"),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                if (snapshot.sparklinePrices.isNotEmpty()) {
+                    item {
+                        PhoneInteractivePriceGraph(
+                            prices = snapshot.sparklinePrices,
+                            bestWindow = snapshot.bestWindow,
+                            now = now,
+                            chartHeight = graphHeight,
+                            graphHorizon = Duration.ofHours(30),
+                        )
+                    }
+                }
+                item {
+                    PhoneControlsPanel(
+                        settings = settings,
+                        onLoadDurationChanged = onLoadDurationChanged,
+                        onSearchHorizonChanged = onSearchHorizonChanged,
+                    )
+                }
             }
         }
     }
@@ -573,9 +592,11 @@ private fun PhoneInteractivePriceGraph(
     prices: List<PriceWindow>,
     bestWindow: BestWindow?,
     now: Instant,
+    chartHeight: Dp = 140.dp,
+    graphHorizon: Duration = Duration.ofHours(24),
 ) {
     val visiblePrices = prices
-        .filter { it.validTo > now && it.validFrom < now.plus(Duration.ofHours(24)) }
+        .filter { it.validTo > now && it.validFrom < now.plus(graphHorizon) }
     if (visiblePrices.size < 2) return
 
     val label = sparklineLabel(visiblePrices, now)
@@ -654,8 +675,9 @@ private fun PhoneInteractivePriceGraph(
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(140.dp)
+                    .height(chartHeight)
                     .testTag("phone_price_sparkline")
+                    .pointerHoverIcon(PointerIcon.Crosshair)
                     .onKeyEvent { event ->
                         if (event.type != KeyEventType.KeyDown) {
                             return@onKeyEvent false

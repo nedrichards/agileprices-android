@@ -14,7 +14,7 @@ The app is independent and is not affiliated with, endorsed by or sponsored by O
 - Direct-debit Agile tariff selection where Octopus publishes multiple payment methods for a region.
 - Current p/kWh price from standard unit rates.
 - Exact cheapest future window for the remembered run time, plus independently priced whole-hour start- and finish-timer recommendations.
-- Phone/adaptive Material 3 UI showing current price, cheapest remembered-duration window, planning controls and an interactive 24-hour price graph.
+- Phone/adaptive Material 3 UI showing current price, cheapest remembered-duration window, planning controls and an interactive price graph: 24 hours on compact screens and up to 30 hours on expanded screens when cached rates are available.
 - Wear app UI tuned for round watch screens.
 - Wear Tile showing current price and cheapest window.
 - Wear SHORT_TEXT complication showing current price.
@@ -112,7 +112,7 @@ After installing on a phone or resizable Android/ChromeOS window:
 2. Either choose a UK electricity region manually or press **Use my location**. Confirm location permission is requested only after that press, the resulting suggestion says to check the electricity account, and denying permission leaves manual selection usable.
 3. Confirm the app loads a current price, current half-hour period, exact cheapest window and independently priced start- and finish-timer recommendations for the selected run time.
 4. Change run time and search horizon, then confirm all three recommendations recompute from cached rates.
-5. Confirm the interactive 24-hour graph supports left/right selection while vertical swipes or up/down navigation scroll the page.
+5. Confirm the interactive graph supports left/right selection while vertical swipes or up/down navigation scroll the page; it shows 24 hours on compact screens and up to 30 hours on expanded screens when cached rates are available.
 6. Confirm stale/error messaging and manual refresh remain usable at compact and wider window sizes.
 7. Add the Android home-screen widget and confirm it shows cached current-price and cheapest-window data, then opens the app when tapped.
 8. Enable at-or-below-zero alerts, then confirm a negative price posts an ongoing notification, a zero price keeps it, and a £0.01-or-higher price removes it.
