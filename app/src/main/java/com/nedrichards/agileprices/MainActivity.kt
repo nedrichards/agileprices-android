@@ -158,6 +158,7 @@ private fun AgilePricesApp(
         }
     }
     var busy by remember { mutableStateOf(false) }
+    var findingRegion by remember { mutableStateOf(false) }
     var actionMessage by remember { mutableStateOf<String?>(null) }
     var choosingRegion by remember { mutableStateOf(false) }
     var lastAutoRefreshKey by remember { mutableStateOf<AutoRefreshKey?>(null) }
@@ -167,6 +168,7 @@ private fun AgilePricesApp(
     }
 
     val applySuggestedRegion: (Result<String>) -> Unit = { result ->
+        findingRegion = false
         result.onSuccess { code ->
             val region = ukElectricityRegions.firstOrNull { it.code == code }
             if (region == null) {
@@ -196,10 +198,13 @@ private fun AgilePricesApp(
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
-        if (granted) locationSuggester.request(applySuggestedRegion)
+        if (granted && findingRegion) locationSuggester.request(applySuggestedRegion)
         else {
+            findingRegion = false
             busy = false
-            actionMessage = "Location permission was not granted. Choose your region manually."
+            if (!granted) {
+                actionMessage = "Location permission was not granted. Choose your region manually."
+            }
         }
     }
 
@@ -247,9 +252,16 @@ private fun AgilePricesApp(
         settings = settings,
         now = now,
         busy = busy,
+        findingRegion = findingRegion,
         message = actionMessage,
         choosingRegion = choosingRegion,
         onSelectRegion = { region ->
+            if (findingRegion) {
+                locationSuggester.cancel()
+                findingRegion = false
+                busy = false
+                actionMessage = null
+            }
             scope.launch {
                 busy = true
                 actionMessage = "Loading ${region.name}"
@@ -301,12 +313,19 @@ private fun AgilePricesApp(
         },
         onSuggestRegion = {
             busy = true
+            findingRegion = true
             actionMessage = "Finding your electricity region…"
             if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                 locationSuggester.request(applySuggestedRegion)
             } else {
                 locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
             }
+        },
+        onCancelLocationLookup = {
+            locationSuggester.cancel()
+            findingRegion = false
+            busy = false
+            actionMessage = null
         },
         onEnableNegativePriceAlerts = {
             if (
@@ -359,6 +378,7 @@ internal fun AgilePricesContent(
     settings: AgileSettings,
     now: Instant,
     busy: Boolean,
+    findingRegion: Boolean = false,
     message: String?,
     choosingRegion: Boolean,
     onSelectRegion: (ElectricityRegion) -> Unit,
@@ -368,6 +388,7 @@ internal fun AgilePricesContent(
     onChangeRegion: () -> Unit,
     onDismissRegionPicker: () -> Unit,
     onSuggestRegion: () -> Unit = {},
+    onCancelLocationLookup: () -> Unit = {},
     onEnableNegativePriceAlerts: () -> Unit = {},
 ) {
     val showingSetup = choosingRegion || snapshot.status == SnapshotStatus.NoSetup
@@ -382,6 +403,7 @@ internal fun AgilePricesContent(
             settings = settings,
             now = now,
             busy = busy,
+            findingRegion = findingRegion,
             message = message,
             onSelectRegion = onSelectRegion,
             onRefresh = onRefresh,
@@ -389,6 +411,7 @@ internal fun AgilePricesContent(
             onSearchHorizonChanged = onSearchHorizonChanged,
             onChangeRegion = onChangeRegion,
             onSuggestRegion = onSuggestRegion,
+            onCancelLocationLookup = onCancelLocationLookup,
         )
         AgileSurface.Phone -> AgilePricesPhoneContent(
             showingSetup = showingSetup,
@@ -397,6 +420,7 @@ internal fun AgilePricesContent(
             settings = settings,
             now = now,
             busy = busy,
+            findingRegion = findingRegion,
             message = message,
             onSelectRegion = onSelectRegion,
             onRefresh = onRefresh,
@@ -404,6 +428,7 @@ internal fun AgilePricesContent(
             onSearchHorizonChanged = onSearchHorizonChanged,
             onChangeRegion = onChangeRegion,
             onSuggestRegion = onSuggestRegion,
+            onCancelLocationLookup = onCancelLocationLookup,
             onEnableNegativePriceAlerts = onEnableNegativePriceAlerts,
         )
     }
@@ -416,6 +441,7 @@ internal fun AgilePricesWearContent(
     settings: AgileSettings,
     now: Instant,
     busy: Boolean,
+    findingRegion: Boolean,
     message: String?,
     onSelectRegion: (ElectricityRegion) -> Unit,
     onRefresh: () -> Unit,
@@ -423,6 +449,7 @@ internal fun AgilePricesWearContent(
     onSearchHorizonChanged: (Int) -> Unit,
     onChangeRegion: () -> Unit,
     onSuggestRegion: () -> Unit,
+    onCancelLocationLookup: () -> Unit,
 ) {
     AgileWearTheme {
         Box(
@@ -433,9 +460,11 @@ internal fun AgilePricesWearContent(
             if (showingSetup) {
                 WearRegionSetupScreen(
                     busy = busy,
+                    findingRegion = findingRegion,
                     message = message ?: snapshot.message,
                     onSelectRegion = onSelectRegion,
                     onSuggestRegion = onSuggestRegion,
+                    onCancelLocationLookup = onCancelLocationLookup,
                 )
             } else {
                 WearPriceScreen(
@@ -467,24 +496,30 @@ private fun AgileWearTheme(content: @Composable () -> Unit) {
 @Composable
 internal fun RegionSetupScreen(
     busy: Boolean,
+    findingRegion: Boolean = false,
     message: String?,
     onSelectRegion: (ElectricityRegion) -> Unit,
     onSuggestRegion: () -> Unit = {},
+    onCancelLocationLookup: () -> Unit = {},
 ) {
     WearRegionSetupScreen(
         busy = busy,
+        findingRegion = findingRegion,
         message = message,
         onSelectRegion = onSelectRegion,
         onSuggestRegion = onSuggestRegion,
+        onCancelLocationLookup = onCancelLocationLookup,
     )
 }
 
 @Composable
 internal fun WearRegionSetupScreen(
     busy: Boolean,
+    findingRegion: Boolean = false,
     message: String?,
     onSelectRegion: (ElectricityRegion) -> Unit,
     onSuggestRegion: () -> Unit = {},
+    onCancelLocationLookup: () -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
     val focusRequester = remember { FocusRequester() }
@@ -531,15 +566,15 @@ internal fun WearRegionSetupScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
             PillAction(
-                text = "Use my location",
-                enabled = !busy,
-                onClick = onSuggestRegion,
+                text = if (findingRegion) "Cancel location lookup" else "Use my location",
+                enabled = !busy || findingRegion,
+                onClick = if (findingRegion) onCancelLocationLookup else onSuggestRegion,
                 filled = false,
             )
             ukElectricityRegions.forEach { region ->
                 PillAction(
                     text = region.name,
-                    enabled = !busy,
+                    enabled = !busy || findingRegion,
                     onClick = { onSelectRegion(region) },
                 )
             }
@@ -869,8 +904,8 @@ internal fun sparklineLabel(prices: List<PriceWindow>, now: Instant): String {
     val availableMinutes = Duration.between(now, prices.last().validTo)
         .toMinutes()
         .coerceAtLeast(30)
-    val availableHours = ((availableMinutes + 59) / 60).coerceAtMost(24)
-    return if (availableHours >= 24) "Next 24h" else "Next ${availableHours}h"
+    val availableHours = (availableMinutes + 59) / 60
+    return "Next ${availableHours}h"
 }
 
 @Composable

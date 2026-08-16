@@ -189,7 +189,7 @@ internal class RegionLocationSuggester(private val context: Context) {
             onResult(Result.failure(IllegalStateException("No location provider is enabled.")))
             return
         }
-        cancellationSignal?.cancel()
+        cancel()
         cancellationSignal = CancellationSignal()
         val generation = ++requestGeneration
         runCatching {
@@ -210,6 +210,12 @@ internal class RegionLocationSuggester(private val context: Context) {
         }.onFailure {
             if (generation == requestGeneration) onResult(Result.failure(it))
         }
+    }
+
+    fun cancel() {
+        requestGeneration++
+        cancellationSignal?.cancel()
+        cancellationSignal = null
     }
 
     private fun matchLocationToRegion(location: Location): String {
@@ -236,9 +242,7 @@ internal class RegionLocationSuggester(private val context: Context) {
     }
 
     fun close() {
-        requestGeneration++
-        cancellationSignal?.cancel()
-        cancellationSignal = null
+        cancel()
         lookupExecutor.shutdownNow()
     }
 }

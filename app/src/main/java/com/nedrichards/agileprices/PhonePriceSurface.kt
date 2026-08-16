@@ -82,6 +82,7 @@ internal fun AgilePricesPhoneContent(
     settings: AgileSettings,
     now: Instant,
     busy: Boolean,
+    findingRegion: Boolean,
     message: String?,
     onSelectRegion: (ElectricityRegion) -> Unit,
     onRefresh: () -> Unit,
@@ -89,6 +90,7 @@ internal fun AgilePricesPhoneContent(
     onSearchHorizonChanged: (Int) -> Unit,
     onChangeRegion: () -> Unit,
     onSuggestRegion: () -> Unit,
+    onCancelLocationLookup: () -> Unit,
     onEnableNegativePriceAlerts: () -> Unit,
 ) {
     AgilePhoneTheme {
@@ -100,9 +102,11 @@ internal fun AgilePricesPhoneContent(
                 PhoneRegionSetupScreen(
                     widthClass = widthClass,
                     busy = busy,
+                    findingRegion = findingRegion,
                     message = message ?: snapshot.message,
                     onSelectRegion = onSelectRegion,
                     onSuggestRegion = onSuggestRegion,
+                    onCancelLocationLookup = onCancelLocationLookup,
                     modifier = Modifier.padding(innerPadding),
                 )
             } else {
@@ -146,16 +150,18 @@ private fun AgilePhoneTheme(content: @Composable () -> Unit) {
 internal fun PhoneRegionSetupScreen(
     widthClass: AdaptiveWidthClass,
     busy: Boolean,
+    findingRegion: Boolean = false,
     message: String?,
     onSelectRegion: (ElectricityRegion) -> Unit,
     onSuggestRegion: () -> Unit = {},
+    onCancelLocationLookup: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp)
     val regionButton: @Composable (ElectricityRegion) -> Unit = { region ->
         Button(
             onClick = { onSelectRegion(region) },
-            enabled = !busy,
+            enabled = !busy || findingRegion,
             shape = RoundedCornerShape(8.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -202,10 +208,10 @@ internal fun PhoneRegionSetupScreen(
             }
             item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
                 OutlinedButton(
-                    onClick = onSuggestRegion,
-                    enabled = !busy,
+                    onClick = if (findingRegion) onCancelLocationLookup else onSuggestRegion,
+                    enabled = !busy || findingRegion,
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("Use my location") }
+                ) { Text(if (findingRegion) "Cancel location lookup" else "Use my location") }
             }
             items(ukElectricityRegions) { region -> regionButton(region) }
         }
@@ -244,10 +250,10 @@ internal fun PhoneRegionSetupScreen(
         }
         item {
             OutlinedButton(
-                onClick = onSuggestRegion,
-                enabled = !busy,
+                onClick = if (findingRegion) onCancelLocationLookup else onSuggestRegion,
+                enabled = !busy || findingRegion,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Use my location") }
+            ) { Text(if (findingRegion) "Cancel location lookup" else "Use my location") }
         }
         items(ukElectricityRegions) { region ->
             regionButton(region)

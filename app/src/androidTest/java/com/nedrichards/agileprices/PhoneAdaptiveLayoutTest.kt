@@ -84,6 +84,54 @@ class PhoneAdaptiveLayoutTest {
     }
 
     @Test
+    fun phoneLocationLookupCanBeCancelledBeforeChoosingManually() {
+        var selected: ElectricityRegion? = null
+        var cancelled = false
+        var busy by mutableStateOf(true)
+        var findingRegion by mutableStateOf(true)
+
+        compose.setContent {
+            AgilePricesContent(
+                surface = AgileSurface.Phone,
+                adaptiveWidthClass = AdaptiveWidthClass.Compact,
+                snapshot = PriceSnapshot(
+                    currentPrice = null,
+                    bestWindow = null,
+                    fetchedAt = null,
+                    validUntil = null,
+                    status = SnapshotStatus.NoSetup,
+                ),
+                settings = noSetupSettings(),
+                now = now,
+                busy = busy,
+                findingRegion = findingRegion,
+                message = "Finding your electricity region…",
+                choosingRegion = false,
+                onSelectRegion = { selected = it },
+                onRefresh = {},
+                onLoadDurationChanged = {},
+                onSearchHorizonChanged = {},
+                onChangeRegion = {},
+                onDismissRegionPicker = {},
+                onCancelLocationLookup = {
+                    cancelled = true
+                    busy = false
+                    findingRegion = false
+                },
+            )
+        }
+
+        compose.onNodeWithText("Cancel location lookup").performClick()
+        compose.onNodeWithText("Use my location").assertIsDisplayed()
+        compose.onNodeWithTag("phone_setup_list").performScrollToNode(hasText("London"))
+        compose.onNodeWithText("London").performClick()
+        compose.runOnIdle {
+            assertTrue(cancelled)
+            assertEquals("_C", selected?.code)
+        }
+    }
+
+    @Test
     fun widePhoneSetupUsesAnAdaptiveRegionGrid() {
         var selected: ElectricityRegion? = null
         var requestedLocation = false
