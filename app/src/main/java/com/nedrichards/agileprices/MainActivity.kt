@@ -150,13 +150,6 @@ private fun AgilePricesApp(
     val appContext = LocalContext.current.applicationContext
     val scope = rememberCoroutineScope()
     val locationSuggester = remember { RegionLocationSuggester(appContext) }
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) {
-            scope.launch { NegativePriceNotifier.update(appContext) }
-        }
-    }
     var busy by remember { mutableStateOf(false) }
     var findingRegion by remember { mutableStateOf(false) }
     var actionMessage by remember { mutableStateOf<String?>(null) }
@@ -206,6 +199,17 @@ private fun AgilePricesApp(
                 actionMessage = "Location permission was not granted. Choose your region manually."
             }
         }
+    }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            actionMessage = null
+            scope.launch { NegativePriceNotifier.update(appContext) }
+        } else {
+            actionMessage = "Notification permission was not granted. You can still enable it in Android settings."
+        }
+        NegativePriceNotifier.openNotificationSettings(appContext)
     }
 
     var now by remember { mutableStateOf(Instant.now()) }
@@ -327,7 +331,7 @@ private fun AgilePricesApp(
             busy = false
             actionMessage = null
         },
-        onEnableNegativePriceAlerts = {
+        onOpenNegativePriceAlertSettings = {
             if (
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 ContextCompat.checkSelfPermission(
@@ -337,7 +341,7 @@ private fun AgilePricesApp(
             ) {
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             } else {
-                scope.launch { NegativePriceNotifier.update(appContext) }
+                NegativePriceNotifier.openNotificationSettings(appContext)
             }
         },
     )
@@ -389,7 +393,7 @@ internal fun AgilePricesContent(
     onDismissRegionPicker: () -> Unit,
     onSuggestRegion: () -> Unit = {},
     onCancelLocationLookup: () -> Unit = {},
-    onEnableNegativePriceAlerts: () -> Unit = {},
+    onOpenNegativePriceAlertSettings: () -> Unit = {},
 ) {
     val showingSetup = choosingRegion || snapshot.status == SnapshotStatus.NoSetup
     BackHandler(enabled = choosingRegion && snapshot.status != SnapshotStatus.NoSetup) {
@@ -429,7 +433,7 @@ internal fun AgilePricesContent(
             onChangeRegion = onChangeRegion,
             onSuggestRegion = onSuggestRegion,
             onCancelLocationLookup = onCancelLocationLookup,
-            onEnableNegativePriceAlerts = onEnableNegativePriceAlerts,
+            onOpenNegativePriceAlertSettings = onOpenNegativePriceAlertSettings,
         )
     }
 }

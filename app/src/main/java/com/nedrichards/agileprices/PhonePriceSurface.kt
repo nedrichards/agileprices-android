@@ -96,7 +96,7 @@ internal fun AgilePricesPhoneContent(
     onChangeRegion: () -> Unit,
     onSuggestRegion: () -> Unit,
     onCancelLocationLookup: () -> Unit,
-    onEnableNegativePriceAlerts: () -> Unit,
+    onOpenNegativePriceAlertSettings: () -> Unit,
 ) {
     AgilePhoneTheme {
         Scaffold(
@@ -126,7 +126,7 @@ internal fun AgilePricesPhoneContent(
                     onLoadDurationChanged = onLoadDurationChanged,
                     onSearchHorizonChanged = onSearchHorizonChanged,
                     onChangeRegion = onChangeRegion,
-                    onEnableNegativePriceAlerts = onEnableNegativePriceAlerts,
+                    onOpenNegativePriceAlertSettings = onOpenNegativePriceAlertSettings,
                     modifier = Modifier.padding(innerPadding),
                 )
             }
@@ -278,7 +278,7 @@ internal fun PhonePriceScreen(
     onLoadDurationChanged: (Int) -> Unit,
     onSearchHorizonChanged: (Int) -> Unit,
     onChangeRegion: () -> Unit,
-    onEnableNegativePriceAlerts: () -> Unit,
+    onOpenNegativePriceAlertSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (widthClass) {
@@ -292,7 +292,7 @@ internal fun PhonePriceScreen(
             onLoadDurationChanged = onLoadDurationChanged,
             onSearchHorizonChanged = onSearchHorizonChanged,
             onChangeRegion = onChangeRegion,
-            onEnableNegativePriceAlerts = onEnableNegativePriceAlerts,
+            onOpenNegativePriceAlertSettings = onOpenNegativePriceAlertSettings,
             modifier = modifier,
         )
         AdaptiveWidthClass.Medium,
@@ -307,7 +307,7 @@ internal fun PhonePriceScreen(
             onLoadDurationChanged = onLoadDurationChanged,
             onSearchHorizonChanged = onSearchHorizonChanged,
             onChangeRegion = onChangeRegion,
-            onEnableNegativePriceAlerts = onEnableNegativePriceAlerts,
+            onOpenNegativePriceAlertSettings = onOpenNegativePriceAlertSettings,
             modifier = modifier,
         )
     }
@@ -324,7 +324,7 @@ private fun CompactPhonePriceScreen(
     onLoadDurationChanged: (Int) -> Unit,
     onSearchHorizonChanged: (Int) -> Unit,
     onChangeRegion: () -> Unit,
-    onEnableNegativePriceAlerts: () -> Unit,
+    onOpenNegativePriceAlertSettings: () -> Unit,
     modifier: Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -371,7 +371,7 @@ private fun CompactPhonePriceScreen(
                 message = message,
                 onRefresh = onRefresh,
                 onChangeRegion = onChangeRegion,
-                onEnableNegativePriceAlerts = onEnableNegativePriceAlerts,
+                onOpenNegativePriceAlertSettings = onOpenNegativePriceAlertSettings,
             )
         }
     }
@@ -389,7 +389,7 @@ private fun WidePhonePriceScreen(
     onLoadDurationChanged: (Int) -> Unit,
     onSearchHorizonChanged: (Int) -> Unit,
     onChangeRegion: () -> Unit,
-    onEnableNegativePriceAlerts: () -> Unit,
+    onOpenNegativePriceAlertSettings: () -> Unit,
     modifier: Modifier,
 ) {
     val graphPaneWeight = if (widthClass == AdaptiveWidthClass.Expanded) 1.65f else 1.3f
@@ -434,7 +434,7 @@ private fun WidePhonePriceScreen(
                         message = message,
                         onRefresh = onRefresh,
                         onChangeRegion = onChangeRegion,
-                        onEnableNegativePriceAlerts = onEnableNegativePriceAlerts,
+                        onOpenNegativePriceAlertSettings = onOpenNegativePriceAlertSettings,
                     )
                 }
             }
@@ -1034,7 +1034,7 @@ private fun PhoneStatusAndSetupPanel(
     message: String?,
     onRefresh: () -> Unit,
     onChangeRegion: () -> Unit,
-    onEnableNegativePriceAlerts: () -> Unit,
+    onOpenNegativePriceAlertSettings: () -> Unit,
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
@@ -1046,11 +1046,19 @@ private fun PhoneStatusAndSetupPanel(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                text = message ?: snapshot.message ?: snapshot.secondaryStatusText(),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (message == null && snapshot.message == null && snapshot.status == SnapshotStatus.Loaded) {
+                PhoneSetupLine(
+                    "Updated",
+                    snapshot.fetchedAt?.let { formatDateTime(it) } ?: "Current price loaded",
+                )
+            } else {
+                Text(
+                    text = message ?: snapshot.message ?: snapshot.secondaryStatusText(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            PhoneSetupLine("Cache", snapshot.validUntil?.let { "Until ${formatDateTime(it)}" } ?: "No cached rates")
             OutlinedButton(
                 onClick = onRefresh,
                 enabled = !busy,
@@ -1061,27 +1069,38 @@ private fun PhoneStatusAndSetupPanel(
             ) {
                 Text(if (busy) "Refreshing" else "Refresh")
             }
-            HorizontalDivider()
-            PhoneSetupLine("Region", settings.selectedRegionCode?.let { regionCodeToName[it] ?: it } ?: "No region")
-            PhoneSetupLine("Tariff", settings.selectedTariffCode ?: "No tariff")
-            PhoneSetupLine("Updated", snapshot.fetchedAt?.let { formatDateTime(it) } ?: "Not refreshed yet")
-            PhoneSetupLine("Cache", snapshot.validUntil?.let { "Until ${formatDateTime(it)}" } ?: "No cached rates")
-            PhoneSetupLine(
-                "Alerts",
-                if (NegativePriceNotifier.canPost(LocalContext.current)) "At/below zero" else "Off",
-            )
-            if (!NegativePriceNotifier.canPost(LocalContext.current)) {
-                OutlinedButton(
-                    onClick = onEnableNegativePriceAlerts,
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("phone_enable_negative_alerts"),
-                ) {
-                    Text("Enable at-or-below-zero alerts")
+            val context = LocalContext.current
+            val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+            var alertsEnabled by remember(context) {
+                mutableStateOf(NegativePriceNotifier.alertsEnabled(context))
+            }
+            androidx.compose.runtime.DisposableEffect(lifecycleOwner, context) {
+                val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                        alertsEnabled = NegativePriceNotifier.alertsEnabled(context)
+                    }
                 }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
+            PhoneSetupLine("Price alerts", if (alertsEnabled) "On" else "Off")
+            Text(
+                text = "Alerts you while the current price is at or below zero.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(
+                onClick = onOpenNegativePriceAlertSettings,
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("phone_negative_alert_settings"),
+            ) {
+                Text("Manage price alert settings")
             }
             PhoneSetupLine("Data", "Octopus Energy API")
+            PhoneSetupLine("Region", settings.selectedRegionCode?.let { regionCodeToName[it] ?: it } ?: "No region")
+            PhoneSetupLine("Tariff", settings.selectedTariffCode ?: "No tariff")
             OutlinedButton(
                 onClick = onChangeRegion,
                 shape = RoundedCornerShape(8.dp),
