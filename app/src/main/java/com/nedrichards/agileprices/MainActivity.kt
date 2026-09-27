@@ -215,6 +215,7 @@ private fun AgilePricesApp(
     var now by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            lastAutoRefreshKey = null
             while (true) {
                 now = Instant.now()
                 delay(60_000)
@@ -222,7 +223,10 @@ private fun AgilePricesApp(
         }
     }
 
-    val autoRefreshKey = settings.autoRefreshKey()
+    val autoRefreshKey = settings.autoRefreshKey(now)
+    LaunchedEffect(settings.selectedTariffCode) {
+        if (!settings.selectedTariffCode.isNullOrBlank()) RefreshWorker.schedule(appContext)
+    }
     LaunchedEffect(
         settings.selectedTariffCode,
         autoRefreshKey,
@@ -351,17 +355,15 @@ private data class AutoRefreshKey(
     val tariffCode: String?,
     val validUntil: Instant?,
     val hasCachedPrices: Boolean,
-    val loadDurationMinutes: Int,
-    val searchHorizonMinutes: Int,
+    val expectedHorizon: Instant,
 )
 
-private fun AgileSettings.autoRefreshKey(): AutoRefreshKey =
+private fun AgileSettings.autoRefreshKey(now: Instant): AutoRefreshKey =
     AutoRefreshKey(
         tariffCode = selectedTariffCode,
         validUntil = cachedPrices.maxOfOrNull { it.validTo },
         hasCachedPrices = cachedPrices.isNotEmpty(),
-        loadDurationMinutes = loadDurationMinutes,
-        searchHorizonMinutes = searchHorizonMinutes,
+        expectedHorizon = expectedPriceHorizon(now),
     )
 
 internal fun shouldRefreshOnStart(

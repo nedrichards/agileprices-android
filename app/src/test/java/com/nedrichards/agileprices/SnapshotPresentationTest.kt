@@ -246,7 +246,7 @@ class SnapshotPresentationTest {
     }
 
     @Test
-    fun launchRefreshWaitsWhenSetupIsMissingOrCacheCanPlanTheRequestedRun() {
+    fun launchRefreshWaitsWhenSetupIsMissingOrCacheCoversPublishedDay() {
         val now = Instant.parse("2026-03-21T12:00:00Z")
         val currentPrice = PriceWindow(
             validFrom = Instant.parse("2026-03-21T12:00:00Z"),
@@ -267,23 +267,51 @@ class SnapshotPresentationTest {
                 now = now,
             ),
         )
-        val nextPrice = PriceWindow(
-            validFrom = currentPrice.validTo,
-            validTo = currentPrice.validTo.plusSeconds(30 * 60),
-            pricePencePerKwh = 8.3,
-        )
+        val prices = (0 until 22).map { slot ->
+            PriceWindow(
+                validFrom = now.plusSeconds(slot * 30L * 60),
+                validTo = now.plusSeconds((slot + 1) * 30L * 60),
+                pricePencePerKwh = 8.3,
+            )
+        }
         assertFalse(
             shouldRefreshOnStart(
-                settings = settings(cachedPrices = listOf(currentPrice, nextPrice)),
+                settings = settings(cachedPrices = prices),
                 snapshot = PriceSnapshot(
                     currentPrice = currentPrice,
                     bestWindow = BestWindow(
                         start = currentPrice.validFrom,
-                        end = nextPrice.validTo,
+                        end = prices[1].validTo,
                         averagePricePencePerKwh = 8.25,
                     ),
                     fetchedAt = Instant.parse("2026-03-21T11:58:00Z"),
-                    validUntil = Instant.parse("2026-03-21T12:30:00Z"),
+                    validUntil = prices.last().validTo,
+                    status = SnapshotStatus.Loaded,
+                ),
+                now = now,
+            ),
+        )
+    }
+
+    @Test
+    fun launchRefreshRunsWithThreeHoursLeftDespiteUsableLoadWindow() {
+        val now = Instant.parse("2026-03-21T20:00:00Z")
+        val prices = (0 until 6).map { slot ->
+            PriceWindow(
+                validFrom = now.plusSeconds(slot * 30L * 60),
+                validTo = now.plusSeconds((slot + 1) * 30L * 60),
+                pricePencePerKwh = 8.3,
+            )
+        }
+
+        assertTrue(
+            shouldRefreshOnStart(
+                settings = settings(cachedPrices = prices),
+                snapshot = PriceSnapshot(
+                    currentPrice = prices.first(),
+                    bestWindow = BestWindow(now, now.plusSeconds(3600), 8.3),
+                    fetchedAt = now.minusSeconds(3600),
+                    validUntil = prices.last().validTo,
                     status = SnapshotStatus.Loaded,
                 ),
                 now = now,

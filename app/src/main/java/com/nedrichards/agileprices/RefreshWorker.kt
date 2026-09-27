@@ -11,6 +11,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import java.io.IOException
 import java.time.Instant
+import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.first
 
@@ -69,15 +70,27 @@ class RefreshWorker(
 
 internal fun AgileSettings.requiresMorePriceData(now: Instant): Boolean {
     if (selectedTariffCode.isNullOrBlank()) return false
-    if (cachedPrices.isEmpty() || currentPriceAt(cachedPrices, now) == null) return true
-    if (cachedPrices.maxOfOrNull { it.validTo }?.let { it <= now } != false) return true
+    return !pricesCoverExpectedHorizon(cachedPrices, now)
+}
 
-    return findBestLoadWindow(
-        prices = cachedPrices,
-        now = now,
-        durationMinutes = loadDurationMinutes,
-        searchHorizonMinutes = searchHorizonMinutes,
-    ) == null
+internal fun expectedPriceHorizon(now: Instant): Instant {
+    val zone = ZoneId.of("Europe/London")
+    val localNow = now.atZone(zone)
+    val releaseDay = localNow.toLocalDate().plusDays(if (localNow.hour >= 16) 1 else 0)
+    // Agile publishes rates through 23:00 UK time for the released day.
+    return releaseDay.atTime(23, 0).atZone(zone).toInstant()
+}
+
+internal fun pricesCoverExpectedHorizon(prices: List<PriceWindow>, now: Instant): Boolean {
+    var coveredUntil = Instant.ofEpochSecond(now.epochSecond / 1800 * 1800)
+    val horizon = expectedPriceHorizon(now)
+    for (price in prices.sortedBy { it.validFrom }) {
+        if (price.validTo <= coveredUntil) continue
+        if (price.validFrom > coveredUntil) return false
+        coveredUntil = price.validTo
+        if (coveredUntil >= horizon) return true
+    }
+    return false
 }
 
 internal fun Throwable.isRetryableRefreshFailure(): Boolean = when (this) {
