@@ -74,7 +74,7 @@ fun configuredFile(path: String): File {
 
 android {
     namespace = "com.nedrichards.agileprices"
-    compileSdk = 36
+    compileSdk = 37
     defaultConfig {
         applicationId = "com.nedrichards.agileprices"
         minSdk = 30
