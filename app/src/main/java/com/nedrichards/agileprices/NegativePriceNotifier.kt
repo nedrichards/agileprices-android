@@ -105,20 +105,26 @@ object NegativePriceNotifier {
         createChannel(appContext)
         val detail = alert.detailText(now)
         val timeout = alert.positiveAt?.let { Duration.between(now, it).toMillis().coerceAtLeast(1) }
-        NotificationManagerCompat.from(appContext).notify(
-            notificationId,
-            NotificationCompat.Builder(appContext, channelId)
-                .setSmallIcon(R.drawable.ic_notification_price)
-                .setContentTitle("Agile price ${alert.currentPrice.pricePencePerKwh.formatPrice()}p/kWh")
-                .setContentText(detail)
-                .setStyle(NotificationCompat.BigTextStyle().bigText(detail))
-                .setContentIntent(agileLaunchPendingIntent(appContext))
-                .setOngoing(true)
-                .setOnlyAlertOnce(true)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .apply { timeout?.let(::setTimeoutAfter) }
-                .build(),
-        )
+        try {
+            NotificationManagerCompat.from(appContext).notify(
+                notificationId,
+                NotificationCompat.Builder(appContext, channelId)
+                    .setSmallIcon(R.drawable.ic_notification_price)
+                    .setContentTitle("Agile price ${alert.currentPrice.pricePencePerKwh.formatPrice()}p/kWh")
+                    .setContentText(detail)
+                    .setStyle(NotificationCompat.BigTextStyle().bigText(detail))
+                    .setContentIntent(agileLaunchPendingIntent(appContext))
+                    .setOngoing(true)
+                    .setOnlyAlertOnce(true)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .apply { timeout?.let(::setTimeoutAfter) }
+                    .build(),
+            )
+        } catch (_: SecurityException) {
+            // Permission can be revoked after the earlier check or while loading rates.
+            cancel(appContext)
+            return null
+        }
         if (scheduleNextBoundary) {
             scheduleBoundaryUpdate(appContext, now, alert.nextBoundary)
         }
