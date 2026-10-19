@@ -1,16 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:scaleX="0.9"
-        android:scaleY="0.9">
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M50,15h25c3.5,0 5.6,3.9 3.7,6.8L61.4,47h19.1c4,0 5.9,4.9 3,7.6L36.8,94.4c-3.2,2.7 -7.9,-0.6 -6.3,-4.5L43,59.2H28.2c-3.5,0 -5.6,-3.8 -3.8,-6.7L46.2,17c0.8,-1.2 2.2,-2 3.8,-2z" />
-    </group>
+<!-- Generated from design/launcher-icon/launcher.svg. Run scripts/generate-launcher-icons.py. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:pathData="M66.71,29.05A28,28 0 0,1 51.07,81.85 M34.20,73.80A28,28 0 0,1 37.94,31.06" android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="3.2" android:strokeLineCap="round" />
+    <path android:pathData="M50.8,24H61.2Q62.6,24 61.9,25.4L49.2,49.6H59.3Q61,49.6 60.1,51.1L43.3,83.3Q42.5,84.7 42.8,83L47.1,60.4H37.4Q35.8,60.4 36.5,58.9L49.4,25Q49.8,24 50.8,24Z" android:fillColor="#FFFFFFFF" android:strokeColor="#00000000" />
+    <path android:pathData="M65,39V54L75,59" android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="3.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M67.4,54A2.4,2.4 0 1,1 62.6,54A2.4,2.4 0 1,1 67.4,54Z" android:fillColor="#FFFFFFFF" android:strokeColor="#00000000" />
 </vector>
