@@ -1,5 +1,9 @@
+// Both flavors share this source; chooseSurface routes watch devices to the Wear UI.
+@file:SuppressLint("WearMaterialTheme")
+
 package com.nedrichards.agileprices
 
+import android.annotation.SuppressLint
 import android.graphics.Paint as AndroidPaint
 import android.os.Build
 import androidx.compose.foundation.Canvas
