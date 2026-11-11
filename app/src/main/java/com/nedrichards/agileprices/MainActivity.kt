@@ -233,6 +233,7 @@ private fun AgilePricesApp(
         now,
     ) {
         if (
+            !(surface == AgileSurface.Wear && settings.needsWearConnectionRecovery(now)) &&
             shouldRefreshOnStart(settings = settings, snapshot = snapshot, now = now) &&
             lastAutoRefreshKey != autoRefreshKey
         ) {
@@ -631,6 +632,31 @@ internal fun WearPriceScreen(
     onSearchHorizonChanged: (Int) -> Unit,
     onChangeRegion: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val needsConnection = context.isWatchDevice() && settings.needsWearConnectionRecovery(now)
+    var recoveryAttempt by remember { mutableStateOf(0) }
+    var connecting by remember { mutableStateOf(false) }
+    var recoveryMessage by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(needsConnection, settings.selectedTariffCode, recoveryAttempt, lifecycleOwner) {
+        if (needsConnection) {
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                connecting = true
+                recoveryMessage = "Connecting to update prices…"
+                try {
+                    runCatchingPreservingCancellation { recoverWearPrices(context) }
+                        .onSuccess { recoveryMessage = "No current price returned. Try again later." }
+                        .onFailure { recoveryMessage = "Prices unavailable. Connect to the internet and retry." }
+                } finally {
+                    connecting = false
+                }
+                // One bounded attempt per visible session, or explicit Retry.
+                kotlinx.coroutines.awaitCancellation()
+            }
+        } else {
+            recoveryMessage = null
+        }
+    }
     val listState = rememberLazyListState()
     val focusRequester = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
@@ -683,7 +709,7 @@ internal fun WearPriceScreen(
             }
             item {
                 Text(
-                    text = message ?: snapshot.message ?: snapshot.secondaryStatusText(),
+                    text = if (needsConnection) recoveryMessage ?: "Connect to update prices" else message ?: snapshot.message ?: snapshot.secondaryStatusText(),
                     fontSize = 11.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
@@ -709,12 +735,22 @@ internal fun WearPriceScreen(
             }
             item {
                 PillAction(
-                    text = if (busy) "Refreshing" else "Refresh",
-                    enabled = !busy,
-                    onClick = onRefresh,
+                    text = if (connecting) "Connecting…" else if (needsConnection) "Retry" else if (busy) "Refreshing" else "Refresh",
+                    enabled = !busy && !connecting,
+                    onClick = { if (needsConnection) recoveryAttempt++ else onRefresh() },
                     modifier = Modifier.testTag("refresh_action"),
                     filled = false,
                 )
+            }
+            if (needsConnection && !connecting) {
+                item {
+                    PillAction(
+                        text = "Wi-Fi settings",
+                        enabled = true,
+                        onClick = { openWearWifiSettings(context) },
+                        filled = false,
+                    )
+                }
             }
             item {
                 SetupSummary(
