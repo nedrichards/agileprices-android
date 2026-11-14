@@ -127,3 +127,5 @@ After installing on a Wear OS emulator or device:
 5. With negative prices in the visible horizon, confirm the sparkline includes a horizontal zero-price baseline, including when every visible price is negative.
 6. Add the Tile and confirm it shows the current price plus cheapest window.
 7. Add the SHORT_TEXT complication and confirm it opens the app when tapped.
+
+For hosted checks and artifacts, see [continuous integration](docs/CI.md).
