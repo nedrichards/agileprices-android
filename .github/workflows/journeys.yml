@@ -25,7 +25,7 @@ jobs:
             api: 36
             target: default
             profile: pixel_7_pro
-            task: :app:connectedDebugAndroidTest
+            task: :app:connectedPhoneDebugAndroidTest
             filter:
               com.nedrichards.agileprices.MainActivityComposeTest,com.nedrichards.agileprices.PhoneAdaptiveLayoutTest
             package: com.nedrichards.agileprices
@@ -33,7 +33,7 @@ jobs:
             api: 34
             target: android-wear
             profile: wearos_small_round
-            task: :app:connectedDebugAndroidTest
+            task: :app:connectedWearDebugAndroidTest
             filter: com.nedrichards.agileprices.WearProfileLayoutTest
             package: com.nedrichards.agileprices
     env:
