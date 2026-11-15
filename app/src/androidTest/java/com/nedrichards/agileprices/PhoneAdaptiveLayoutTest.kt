@@ -12,6 +12,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -223,7 +224,8 @@ class PhoneAdaptiveLayoutTest {
         compose.onNodeWithTag("phone_compact_price_list").performScrollToNode(hasTestTag("phone_price_sparkline"))
         compose.onNodeWithText("Upcoming prices").assertIsDisplayed()
         compose.onNodeWithText("12:00-12:30").assertIsDisplayed()
-        compose.onNodeWithText("8.2p/kWh").assertIsDisplayed()
+        compose.onNode(hasText("8.2p/kWh") and hasAnyAncestor(hasTestTag("phone_selected_price")))
+            .assertIsDisplayed()
         compose.onNodeWithTag("phone_compact_price_list")
             .performScrollToNode(hasTestTag("phone_cheapest_price"))
         compose.onNodeWithTag("phone_cheapest_price").assertIsDisplayed()
@@ -442,7 +444,8 @@ class PhoneAdaptiveLayoutTest {
 
         compose.onNodeWithTag("phone_compact_price_list").performScrollToNode(hasTestTag("phone_price_sparkline"))
         compose.onNodeWithText("12:00-12:30").assertIsDisplayed()
-        compose.onNodeWithText("8.2p/kWh").assertIsDisplayed()
+        compose.onNode(hasText("8.2p/kWh") and hasAnyAncestor(hasTestTag("phone_selected_price")))
+            .assertIsDisplayed()
 
         compose.onNodeWithTag("phone_price_sparkline")
             .performSemanticsAction(SemanticsActions.RequestFocus)
@@ -454,7 +457,8 @@ class PhoneAdaptiveLayoutTest {
         compose.onNodeWithTag("phone_price_sparkline")
             .performKeyInput { pressKey(Key.DirectionLeft) }
         compose.onNodeWithText("12:00-12:30").assertIsDisplayed()
-        compose.onNodeWithText("8.2p/kWh").assertIsDisplayed()
+        compose.onNode(hasText("8.2p/kWh") and hasAnyAncestor(hasTestTag("phone_selected_price")))
+            .assertIsDisplayed()
     }
 
     @Test

@@ -19,3 +19,8 @@ Workflow syntax and shell snippets are checked locally before publication. Hoste
 execution provides the architecture and installed-artifact evidence; generated
 captures still require human visual review. No release or tag is created by this
 maintenance change.
+
+The hosted phone journey found duplicate current/selected price text. Graph
+assertions target the existing selected-price container so they verify the
+selected graph value, including keyboard changes, without relying on global
+text uniqueness.
